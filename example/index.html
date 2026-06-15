@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cobalt Note example</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 760px;
+            margin: 48px auto;
+            padding: 0 24px;
+            line-height: 1.5;
+        }
+
+        #editor {
+            min-height: 40px;
+            padding: 12px 14px;
+            border: 1px solid #bbb;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        #editor:focus {
+            border-color: #555;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+        }
+
+        pre {
+            background: #f6f6f6;
+            padding: 12px;
+            border-radius: 8px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cobalt Note example</h1>
+
+    <p>
+        Click in the editor and try typing. Use
+        <kbd>Ctrl</kbd>+<kbd>B</kbd>,
+        <kbd>Ctrl</kbd>+<kbd>I</kbd>, and
+        <kbd>Ctrl</kbd>+<kbd>U</kbd>.
+        Enter is disabled for this single-note example.
+    </p>
+
+    <div id="editor"></div>
+
+    <h2>Fragment</h2>
+    <pre id="fragment"></pre>
+
+    <script type="module">
+        import { edit } from "../dist/index.js";
+
+        const fragment = {
+            text: "Hello cobalt note",
+            annotations: [
+                {
+                    range: [6, 12],
+                    tag: "<strong>",
+                    order: 1
+                }
+            ]
+        };
+
+        const editorElement = document.querySelector("#editor");
+        const fragmentElement = document.querySelector("#fragment");
+
+        edit(editorElement, fragment);
+
+        function updateFragmentPreview() {
+            fragmentElement.textContent = JSON.stringify(fragment, null, 2);
+            requestAnimationFrame(updateFragmentPreview);
+        }
+
+        updateFragmentPreview();
+    </script>
+</body>
+</html>

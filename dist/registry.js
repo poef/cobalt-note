@@ -1,35 +1,15 @@
-export interface AnnotationDefinition {
-    name: string;
-    enableTag: string;
-    disableTag: string;
-    shortcut?: string;
-}
-
-export interface ParsedAnnotationTag {
-    name: string;
-    enabled: boolean;
-    href?: string;
-}
-
 export class AnnotationRegistry {
-    private definitions = new Map<string, AnnotationDefinition>();
-
-    register(definition: AnnotationDefinition): void {
+    definitions = new Map();
+    register(definition) {
         this.definitions.set(definition.name, definition);
     }
-
-    get(name: string): AnnotationDefinition | undefined {
+    get(name) {
         return this.definitions.get(name);
     }
-
-    getAll(): AnnotationDefinition[] {
+    getAll() {
         return Array.from(this.definitions.values());
     }
-
-    findByTag(tag: string): {
-        definition: AnnotationDefinition;
-        enabled: boolean;
-    } | null {
+    findByTag(tag) {
         for (const definition of this.definitions.values()) {
             if (tag === definition.enableTag) {
                 return {
@@ -37,7 +17,6 @@ export class AnnotationRegistry {
                     enabled: true
                 };
             }
-
             if (tag === definition.disableTag) {
                 return {
                     definition,
@@ -45,51 +24,38 @@ export class AnnotationRegistry {
                 };
             }
         }
-
         return null;
     }
 }
-
 export const defaultRegistry = new AnnotationRegistry();
-
 defaultRegistry.register({
     name: "strong",
     enableTag: "<strong>",
     disableTag: "</strong>",
     shortcut: "Ctrl+B"
 });
-
 defaultRegistry.register({
     name: "em",
     enableTag: "<em>",
     disableTag: "</em>",
     shortcut: "Ctrl+I"
 });
-
 defaultRegistry.register({
     name: "underline",
     enableTag: "<u>",
     disableTag: "</u>",
     shortcut: "Ctrl+U"
 });
-
-export function parseAnnotationTag(
-    tag: string,
-    registry: AnnotationRegistry = defaultRegistry
-): ParsedAnnotationTag | null {
+export function parseAnnotationTag(tag, registry = defaultRegistry) {
     const trimmed = tag.trim();
-
     const registryMatch = registry.findByTag(trimmed);
-
     if (registryMatch) {
         return {
             name: registryMatch.definition.name,
             enabled: registryMatch.enabled
         };
     }
-
     const linkMatch = trimmed.match(/^<a\s+href="([^"]+)">$/);
-
     if (linkMatch) {
         return {
             name: "link",
@@ -97,29 +63,21 @@ export function parseAnnotationTag(
             href: linkMatch[1]
         };
     }
-
     if (trimmed === "</a>") {
         return {
             name: "link",
             enabled: false
         };
     }
-
     return null;
 }
-
-export function createAnnotationTag(
-    name: string,
-    enabled: boolean,
-    registry: AnnotationRegistry = defaultRegistry
-): string {
+export function createAnnotationTag(name, enabled, registry = defaultRegistry) {
     const definition = registry.get(name);
-
     if (!definition) {
         throw new Error(`Unknown annotation type: ${name}`);
     }
-
     return enabled
         ? definition.enableTag
         : definition.disableTag;
 }
+//# sourceMappingURL=registry.js.map

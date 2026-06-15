@@ -1,47 +1,32 @@
-import { Fragment } from "./fragment.js";
-import { EffectiveState, generateRuns } from "./runs.js";
-
-export function render(fragment: Fragment): string {
+import { generateRuns } from "./runs.js";
+export function render(fragment) {
     return generateRuns(fragment)
-        .map(run => renderRun(
-            fragment.text.slice(run.start, run.end),
-            run.state
-        ))
+        .map(run => renderRun(fragment.text.slice(run.start, run.end), run.state))
         .join("");
 }
-
-function renderRun(
-    text: string,
-    state: EffectiveState
-): string {
+function renderRun(text, state) {
     let html = escapeHtml(text);
-
     if (state.strong) {
         html = `<strong>${html}</strong>`;
     }
-
     if (state.em) {
         html = `<em>${html}</em>`;
     }
-
     if (state.underline) {
         html = `<u>${html}</u>`;
     }
-
     if (state.link) {
         html = `<a href="${escapeAttribute(state.link)}">${html}</a>`;
     }
-
     return html;
 }
-
-function escapeHtml(text: string): string {
+function escapeHtml(text) {
     return text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 }
-
-function escapeAttribute(value: string): string {
+function escapeAttribute(value) {
     return escapeHtml(value).replace(/"/g, "&quot;");
 }
+//# sourceMappingURL=render.js.map
