@@ -23,7 +23,7 @@ export function edit(element, fragment) {
         }
         if (event.key.toLowerCase() === "k") {
             event.preventDefault();
-            toggleLink();
+            addLink();
             return;
         }
         const annotation = getShortcutAnnotation(event);
@@ -66,39 +66,17 @@ export function edit(element, fragment) {
         ]);
         rerender(selection.start, selection.end);
     }
-    function toggleLink() {
+    function addLink() {
         const selection = getSelectionRange(element);
-        if (!selection) {
+        if (!selection || selection.start === selection.end) {
             return;
         }
-        const currentState = getEffectiveState(fragment.annotations, selection.start);
-        if (selection.start === selection.end) {
-            if (currentState.link) {
-                state.pendingLink = null;
-            }
-            else {
-                const href = promptForHref();
-                if (!href) {
-                    return;
-                }
-                state.pendingLink = href;
-            }
-            rerender(selection.start, selection.end);
+        const href = promptForHref();
+        if (!href) {
             return;
-        }
-        let tag;
-        if (currentState.link) {
-            tag = "</a>";
-        }
-        else {
-            const href = promptForHref();
-            if (!href) {
-                return;
-            }
-            tag = createLinkAnnotationTag(href);
         }
         applyCommands(fragment, [
-            new AddAnnotationCommand([selection.start, selection.end], tag)
+            new AddAnnotationCommand([selection.start, selection.end], createLinkAnnotationTag(href))
         ]);
         rerender(selection.start, selection.end);
     }

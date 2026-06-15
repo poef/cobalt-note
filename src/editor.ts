@@ -45,7 +45,7 @@ export function edit(
 
         if (event.key.toLowerCase() === "k") {
             event.preventDefault();
-            toggleLink();
+            addLink();
             return;
         }
 
@@ -131,53 +131,23 @@ export function edit(
         rerender(selection.start, selection.end);
     }
 
-    function toggleLink(): void {
+    function addLink(): void {
         const selection = getSelectionRange(element);
 
-        if (!selection) {
+        if (!selection || selection.start === selection.end) {
             return;
         }
 
-        const currentState = getEffectiveState(
-            fragment.annotations,
-            selection.start
-        );
+        const href = promptForHref();
 
-        if (selection.start === selection.end) {
-            if (currentState.link) {
-                state.pendingLink = null;
-            } else {
-                const href = promptForHref();
-
-                if (!href) {
-                    return;
-                }
-
-                state.pendingLink = href;
-            }
-
-            rerender(selection.start, selection.end);
+        if (!href) {
             return;
-        }
-
-        let tag: string;
-
-        if (currentState.link) {
-            tag = "</a>";
-        } else {
-            const href = promptForHref();
-
-            if (!href) {
-                return;
-            }
-
-            tag = createLinkAnnotationTag(href);
         }
 
         applyCommands(fragment, [
             new AddAnnotationCommand(
                 [selection.start, selection.end],
-                tag
+                createLinkAnnotationTag(href)
             )
         ]);
 

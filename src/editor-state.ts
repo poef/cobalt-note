@@ -1,4 +1,4 @@
-import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
+import { createAnnotationTag } from "./registry.js";
 
 export type ToggleAnnotationName =
     | "strong"
@@ -9,13 +9,6 @@ export type PendingAnnotations = Record<ToggleAnnotationName, boolean>;
 
 export interface EditorState {
     pending: PendingAnnotations;
-
-    /**
-     * undefined: no pending link intent
-     * null: pending intent to disable the active link
-     * string: pending intent to enable a link with this href
-     */
-    pendingLink: string | null | undefined;
 }
 
 export interface PendingAnnotationRange {
@@ -30,8 +23,7 @@ export function createEditorState(): EditorState {
             strong: false,
             em: false,
             underline: false
-        },
-        pendingLink: undefined
+        }
     };
 }
 
@@ -54,16 +46,6 @@ export function buildPendingAnnotations(
         });
     }
 
-    if (state.pendingLink !== undefined) {
-        result.push({
-            start,
-            end,
-            tag: state.pendingLink === null
-                ? "</a>"
-                : createLinkAnnotationTag(state.pendingLink)
-        });
-    }
-
     return result;
 }
 
@@ -73,6 +55,4 @@ export function clearPendingAnnotations(
     for (const name of Object.keys(state.pending) as ToggleAnnotationName[]) {
         state.pending[name] = false;
     }
-
-    state.pendingLink = undefined;
 }
