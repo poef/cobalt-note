@@ -105,7 +105,7 @@ export function edit(
                 selection.start
             );
 
-            state.pending[annotation] = !currentState[annotation];
+            state.pending[annotation] = currentState[annotation] === undefined;
 
             rerender(selection.start, selection.end);
             return;
@@ -118,7 +118,7 @@ export function edit(
 
         const tag = createAnnotationTag(
             annotation,
-            !currentState[annotation]
+            currentState[annotation] === undefined
         );
 
         applyCommands(fragment, [

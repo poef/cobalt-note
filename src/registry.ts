@@ -1,14 +1,22 @@
 export interface AnnotationDefinition {
+    /** Unique internal annotation identity, for example "strong" or "highlight". */
     name: string;
-    enableTag: string;
-    disableTag: string;
+
+    /** Exact opening annotation tag to emit when this annotation is enabled. */
+    tag: string;
+
+    /** Lower values render farther outside in the generated HTML. */
+    priority?: number;
+
     shortcut?: string;
 }
 
 export interface ParsedAnnotationTag {
     name: string;
     enabled: boolean;
-    href?: string;
+    tag?: string;
+    closeTag?: string;
+    priority: number;
 }
 
 export class AnnotationRegistry {
@@ -26,22 +34,25 @@ export class AnnotationRegistry {
         return Array.from(this.definitions.values());
     }
 
-    findByTag(tag: string): {
-        definition: AnnotationDefinition;
-        enabled: boolean;
-    } | null {
+    findByTag(tag: string): ParsedAnnotationTag | null {
+        const trimmed = tag.trim();
+
         for (const definition of this.definitions.values()) {
-            if (tag === definition.enableTag) {
+            if (trimmed === definition.tag) {
                 return {
-                    definition,
-                    enabled: true
+                    name: definition.name,
+                    enabled: true,
+                    tag: definition.tag,
+                    closeTag: createHtmlCloseTag(definition.tag),
+                    priority: definition.priority ?? 100
                 };
             }
 
-            if (tag === definition.disableTag) {
+            if (trimmed === createInverseAnnotationTag(definition.tag)) {
                 return {
-                    definition,
-                    enabled: false
+                    name: definition.name,
+                    enabled: false,
+                    priority: definition.priority ?? 100
                 };
             }
         }
@@ -53,24 +64,31 @@ export class AnnotationRegistry {
 export const defaultRegistry = new AnnotationRegistry();
 
 defaultRegistry.register({
-    name: "strong",
-    enableTag: "<strong>",
-    disableTag: "</strong>",
-    shortcut: "Ctrl+B"
-});
-
-defaultRegistry.register({
-    name: "em",
-    enableTag: "<em>",
-    disableTag: "</em>",
-    shortcut: "Ctrl+I"
+    name: "link",
+    tag: "<a>",
+    priority: 0,
+    shortcut: "Ctrl+K"
 });
 
 defaultRegistry.register({
     name: "underline",
-    enableTag: "<u>",
-    disableTag: "</u>",
+    tag: "<u>",
+    priority: 10,
     shortcut: "Ctrl+U"
+});
+
+defaultRegistry.register({
+    name: "em",
+    tag: "<em>",
+    priority: 20,
+    shortcut: "Ctrl+I"
+});
+
+defaultRegistry.register({
+    name: "strong",
+    tag: "<strong>",
+    priority: 30,
+    shortcut: "Ctrl+B"
 });
 
 export function parseAnnotationTag(
@@ -82,26 +100,24 @@ export function parseAnnotationTag(
     const registryMatch = registry.findByTag(trimmed);
 
     if (registryMatch) {
-        return {
-            name: registryMatch.definition.name,
-            enabled: registryMatch.enabled
-        };
+        return registryMatch;
     }
 
-    const linkMatch = trimmed.match(/^<a\s+href="([^"]+)">$/);
-
-    if (linkMatch) {
+    if (isOpeningTag(trimmed, "a")) {
         return {
             name: "link",
             enabled: true,
-            href: unescapeAttribute(linkMatch[1])
+            tag: trimmed,
+            closeTag: createHtmlCloseTag(trimmed),
+            priority: registry.get("link")?.priority ?? 0
         };
     }
 
-    if (trimmed === "</a>") {
+    if (isClosingTag(trimmed, "a")) {
         return {
             name: "link",
-            enabled: false
+            enabled: false,
+            priority: registry.get("link")?.priority ?? 0
         };
     }
 
@@ -120,8 +136,8 @@ export function createAnnotationTag(
     }
 
     return enabled
-        ? definition.enableTag
-        : definition.disableTag;
+        ? definition.tag
+        : createInverseAnnotationTag(definition.tag);
 }
 
 export function createLinkAnnotationTag(
@@ -130,18 +146,45 @@ export function createLinkAnnotationTag(
     return `<a href="${escapeAttribute(href)}">`;
 }
 
+export function createInverseAnnotationTag(
+    openingTag: string
+): string {
+    const trimmed = openingTag.trim();
+
+    if (!trimmed.startsWith("<") || trimmed.startsWith("</")) {
+        throw new Error(`Expected opening annotation tag: ${openingTag}`);
+    }
+
+    return `</${trimmed.slice(1)}`;
+}
+
+export function createHtmlCloseTag(tag: string): string {
+    const tagName = getTagName(tag);
+
+    if (!tagName) {
+        throw new Error(`Could not determine tag name: ${tag}`);
+    }
+
+    return `</${tagName}>`;
+}
+
+function getTagName(tag: string): string | null {
+    const match = tag.trim().match(/^<\/?\s*([^\s>/]+)/);
+    return match?.[1] ?? null;
+}
+
+function isOpeningTag(tag: string, tagName: string): boolean {
+    return new RegExp(`^<${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
+}
+
+function isClosingTag(tag: string, tagName: string): boolean {
+    return new RegExp(`^</${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
+}
+
 function escapeAttribute(value: string): string {
     return value
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
-}
-
-function unescapeAttribute(value: string): string {
-    return value
-        .replace(/&quot;/g, '"')
-        .replace(/&gt;/g, ">")
-        .replace(/&lt;/g, "<")
-        .replace(/&amp;/g, "&");
 }

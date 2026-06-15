@@ -1,5 +1,6 @@
 import { Fragment } from "./fragment.js";
-import { EffectiveState, generateRuns } from "./runs.js";
+import { createHtmlCloseTag } from "./registry.js";
+import { ActiveAnnotation, EffectiveState, generateRuns } from "./runs.js";
 
 interface RenderTag {
     key: string;
@@ -37,41 +38,25 @@ export function render(fragment: Fragment): string {
 }
 
 function getRenderTags(state: EffectiveState): RenderTag[] {
-    const tags: RenderTag[] = [];
+    return Object
+        .values(state)
+        .sort(compareActiveAnnotations)
+        .map(annotation => ({
+            key: `${annotation.name}:${annotation.tag}`,
+            open: annotation.tag,
+            close: createHtmlCloseTag(annotation.tag)
+        }));
+}
 
-    if (state.link) {
-        tags.push({
-            key: `link:${state.link}`,
-            open: `<a href="${escapeAttribute(state.link)}">`,
-            close: "</a>"
-        });
+function compareActiveAnnotations(
+    a: ActiveAnnotation,
+    b: ActiveAnnotation
+): number {
+    if (a.priority !== b.priority) {
+        return a.priority - b.priority;
     }
 
-    if (state.underline) {
-        tags.push({
-            key: "underline",
-            open: "<u>",
-            close: "</u>"
-        });
-    }
-
-    if (state.em) {
-        tags.push({
-            key: "em",
-            open: "<em>",
-            close: "</em>"
-        });
-    }
-
-    if (state.strong) {
-        tags.push({
-            key: "strong",
-            open: "<strong>",
-            close: "</strong>"
-        });
-    }
-
-    return tags;
+    return a.name.localeCompare(b.name);
 }
 
 function getSharedPrefixLength(
@@ -94,8 +79,4 @@ function escapeHtml(text: string): string {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
-}
-
-function escapeAttribute(value: string): string {
-    return escapeHtml(value).replace(/"/g, "&quot;");
 }

@@ -55,12 +55,12 @@ export function edit(element, fragment) {
         }
         if (selection.start === selection.end) {
             const currentState = getEffectiveState(fragment.annotations, selection.start);
-            state.pending[annotation] = !currentState[annotation];
+            state.pending[annotation] = currentState[annotation] === undefined;
             rerender(selection.start, selection.end);
             return;
         }
         const currentState = getEffectiveState(fragment.annotations, selection.start);
-        const tag = createAnnotationTag(annotation, !currentState[annotation]);
+        const tag = createAnnotationTag(annotation, currentState[annotation] === undefined);
         applyCommands(fragment, [
             new AddAnnotationCommand([selection.start, selection.end], tag)
         ]);

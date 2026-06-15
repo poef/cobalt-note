@@ -40,6 +40,7 @@ export {
 } from "./runs.js";
 
 export type {
+    ActiveAnnotation,
     EffectiveState,
     Run
 } from "./runs.js";

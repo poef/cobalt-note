@@ -1,12 +1,13 @@
 import { Annotation, Fragment } from "./fragment.js";
 import { parseAnnotationTag } from "./registry.js";
 
-export interface EffectiveState {
-    strong: boolean;
-    em: boolean;
-    underline: boolean;
-    link: string | null;
+export interface ActiveAnnotation {
+    name: string;
+    tag: string;
+    priority: number;
 }
+
+export type EffectiveState = Record<string, ActiveAnnotation>;
 
 export interface Run {
     start: number;
@@ -15,12 +16,7 @@ export interface Run {
 }
 
 export function createEmptyState(): EffectiveState {
-    return {
-        strong: false,
-        em: false,
-        underline: false,
-        link: null
-    };
+    return {};
 }
 
 export function getEffectiveState(
@@ -86,12 +82,29 @@ export function stateEquals(
     a: EffectiveState,
     b: EffectiveState
 ): boolean {
-    return (
-        a.strong === b.strong &&
-        a.em === b.em &&
-        a.underline === b.underline &&
-        a.link === b.link
-    );
+    const aKeys = Object.keys(a).sort();
+    const bKeys = Object.keys(b).sort();
+
+    if (aKeys.length !== bKeys.length) {
+        return false;
+    }
+
+    for (let i = 0; i < aKeys.length; i++) {
+        const key = aKeys[i];
+
+        if (key !== bKeys[i]) {
+            return false;
+        }
+
+        if (
+            a[key].tag !== b[key].tag ||
+            a[key].priority !== b[key].priority
+        ) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function mergeAdjacentRuns(
@@ -105,7 +118,7 @@ function mergeAdjacentRuns(
         {
             start: runs[0].start,
             end: runs[0].end,
-            state: { ...runs[0].state }
+            state: copyState(runs[0].state)
         }
     ];
 
@@ -122,12 +135,21 @@ function mergeAdjacentRuns(
             merged.push({
                 start: current.start,
                 end: current.end,
-                state: { ...current.state }
+                state: copyState(current.state)
             });
         }
     }
 
     return merged;
+}
+
+function copyState(state: EffectiveState): EffectiveState {
+    return Object.fromEntries(
+        Object.entries(state).map(([key, value]) => [
+            key,
+            { ...value }
+        ])
+    );
 }
 
 function applyAnnotationToState(
@@ -140,23 +162,18 @@ function applyAnnotationToState(
         return;
     }
 
-    switch (parsed.name) {
-        case "strong":
-            state.strong = parsed.enabled;
-            break;
-
-        case "em":
-            state.em = parsed.enabled;
-            break;
-
-        case "underline":
-            state.underline = parsed.enabled;
-            break;
-
-        case "link":
-            state.link = parsed.enabled
-                ? parsed.href ?? null
-                : null;
-            break;
+    if (!parsed.enabled) {
+        delete state[parsed.name];
+        return;
     }
+
+    if (!parsed.tag) {
+        return;
+    }
+
+    state[parsed.name] = {
+        name: parsed.name,
+        tag: parsed.tag,
+        priority: parsed.priority
+    };
 }

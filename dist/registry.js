@@ -10,17 +10,22 @@ export class AnnotationRegistry {
         return Array.from(this.definitions.values());
     }
     findByTag(tag) {
+        const trimmed = tag.trim();
         for (const definition of this.definitions.values()) {
-            if (tag === definition.enableTag) {
+            if (trimmed === definition.tag) {
                 return {
-                    definition,
-                    enabled: true
+                    name: definition.name,
+                    enabled: true,
+                    tag: definition.tag,
+                    closeTag: createHtmlCloseTag(definition.tag),
+                    priority: definition.priority ?? 100
                 };
             }
-            if (tag === definition.disableTag) {
+            if (trimmed === createInverseAnnotationTag(definition.tag)) {
                 return {
-                    definition,
-                    enabled: false
+                    name: definition.name,
+                    enabled: false,
+                    priority: definition.priority ?? 100
                 };
             }
         }
@@ -29,44 +34,49 @@ export class AnnotationRegistry {
 }
 export const defaultRegistry = new AnnotationRegistry();
 defaultRegistry.register({
-    name: "strong",
-    enableTag: "<strong>",
-    disableTag: "</strong>",
-    shortcut: "Ctrl+B"
-});
-defaultRegistry.register({
-    name: "em",
-    enableTag: "<em>",
-    disableTag: "</em>",
-    shortcut: "Ctrl+I"
+    name: "link",
+    tag: "<a>",
+    priority: 0,
+    shortcut: "Ctrl+K"
 });
 defaultRegistry.register({
     name: "underline",
-    enableTag: "<u>",
-    disableTag: "</u>",
+    tag: "<u>",
+    priority: 10,
     shortcut: "Ctrl+U"
+});
+defaultRegistry.register({
+    name: "em",
+    tag: "<em>",
+    priority: 20,
+    shortcut: "Ctrl+I"
+});
+defaultRegistry.register({
+    name: "strong",
+    tag: "<strong>",
+    priority: 30,
+    shortcut: "Ctrl+B"
 });
 export function parseAnnotationTag(tag, registry = defaultRegistry) {
     const trimmed = tag.trim();
     const registryMatch = registry.findByTag(trimmed);
     if (registryMatch) {
-        return {
-            name: registryMatch.definition.name,
-            enabled: registryMatch.enabled
-        };
+        return registryMatch;
     }
-    const linkMatch = trimmed.match(/^<a\s+href="([^"]+)">$/);
-    if (linkMatch) {
+    if (isOpeningTag(trimmed, "a")) {
         return {
             name: "link",
             enabled: true,
-            href: unescapeAttribute(linkMatch[1])
+            tag: trimmed,
+            closeTag: createHtmlCloseTag(trimmed),
+            priority: registry.get("link")?.priority ?? 0
         };
     }
-    if (trimmed === "</a>") {
+    if (isClosingTag(trimmed, "a")) {
         return {
             name: "link",
-            enabled: false
+            enabled: false,
+            priority: registry.get("link")?.priority ?? 0
         };
     }
     return null;
@@ -77,11 +87,35 @@ export function createAnnotationTag(name, enabled, registry = defaultRegistry) {
         throw new Error(`Unknown annotation type: ${name}`);
     }
     return enabled
-        ? definition.enableTag
-        : definition.disableTag;
+        ? definition.tag
+        : createInverseAnnotationTag(definition.tag);
 }
 export function createLinkAnnotationTag(href) {
     return `<a href="${escapeAttribute(href)}">`;
+}
+export function createInverseAnnotationTag(openingTag) {
+    const trimmed = openingTag.trim();
+    if (!trimmed.startsWith("<") || trimmed.startsWith("</")) {
+        throw new Error(`Expected opening annotation tag: ${openingTag}`);
+    }
+    return `</${trimmed.slice(1)}`;
+}
+export function createHtmlCloseTag(tag) {
+    const tagName = getTagName(tag);
+    if (!tagName) {
+        throw new Error(`Could not determine tag name: ${tag}`);
+    }
+    return `</${tagName}>`;
+}
+function getTagName(tag) {
+    const match = tag.trim().match(/^<\/?\s*([^\s>/]+)/);
+    return match?.[1] ?? null;
+}
+function isOpeningTag(tag, tagName) {
+    return new RegExp(`^<${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
+}
+function isClosingTag(tag, tagName) {
+    return new RegExp(`^</${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
 }
 function escapeAttribute(value) {
     return value
@@ -89,12 +123,5 @@ function escapeAttribute(value) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
-}
-function unescapeAttribute(value) {
-    return value
-        .replace(/&quot;/g, '"')
-        .replace(/&gt;/g, ">")
-        .replace(/&lt;/g, "<")
-        .replace(/&amp;/g, "&");
 }
 //# sourceMappingURL=registry.js.map

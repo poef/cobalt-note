@@ -1,3 +1,4 @@
+import { createHtmlCloseTag } from "./registry.js";
 import { generateRuns } from "./runs.js";
 export function render(fragment) {
     const runs = generateRuns(fragment);
@@ -21,36 +22,20 @@ export function render(fragment) {
     return html;
 }
 function getRenderTags(state) {
-    const tags = [];
-    if (state.link) {
-        tags.push({
-            key: `link:${state.link}`,
-            open: `<a href="${escapeAttribute(state.link)}">`,
-            close: "</a>"
-        });
+    return Object
+        .values(state)
+        .sort(compareActiveAnnotations)
+        .map(annotation => ({
+        key: `${annotation.name}:${annotation.tag}`,
+        open: annotation.tag,
+        close: createHtmlCloseTag(annotation.tag)
+    }));
+}
+function compareActiveAnnotations(a, b) {
+    if (a.priority !== b.priority) {
+        return a.priority - b.priority;
     }
-    if (state.underline) {
-        tags.push({
-            key: "underline",
-            open: "<u>",
-            close: "</u>"
-        });
-    }
-    if (state.em) {
-        tags.push({
-            key: "em",
-            open: "<em>",
-            close: "</em>"
-        });
-    }
-    if (state.strong) {
-        tags.push({
-            key: "strong",
-            open: "<strong>",
-            close: "</strong>"
-        });
-    }
-    return tags;
+    return a.name.localeCompare(b.name);
 }
 function getSharedPrefixLength(current, next) {
     const length = Math.min(current.length, next.length);
@@ -66,8 +51,5 @@ function escapeHtml(text) {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
-}
-function escapeAttribute(value) {
-    return escapeHtml(value).replace(/"/g, "&quot;");
 }
 //# sourceMappingURL=render.js.map

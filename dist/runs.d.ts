@@ -1,10 +1,10 @@
 import { Annotation, Fragment } from "./fragment.js";
-export interface EffectiveState {
-    strong: boolean;
-    em: boolean;
-    underline: boolean;
-    link: string | null;
+export interface ActiveAnnotation {
+    name: string;
+    tag: string;
+    priority: number;
 }
+export type EffectiveState = Record<string, ActiveAnnotation>;
 export interface Run {
     start: number;
     end: number;
