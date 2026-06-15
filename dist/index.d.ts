@@ -7,4 +7,4 @@ export type { Editor } from "./editor.js";
 export { render } from "./render.js";
 export { generateRuns, getEffectiveState } from "./runs.js";
 export type { EffectiveState, Run } from "./runs.js";
-export { AnnotationRegistry, createAnnotationTag, defaultRegistry, parseAnnotationTag } from "./registry.js";
+export { AnnotationRegistry, createAnnotationTag, createLinkAnnotationTag, defaultRegistry, parseAnnotationTag } from "./registry.js";

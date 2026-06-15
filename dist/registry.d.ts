@@ -22,3 +22,4 @@ export declare class AnnotationRegistry {
 export declare const defaultRegistry: AnnotationRegistry;
 export declare function parseAnnotationTag(tag: string, registry?: AnnotationRegistry): ParsedAnnotationTag | null;
 export declare function createAnnotationTag(name: string, enabled: boolean, registry?: AnnotationRegistry): string;
+export declare function createLinkAnnotationTag(href: string): string;

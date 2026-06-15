@@ -43,3 +43,6 @@ http://localhost:8080/example/
 ```
 
 The example creates a single cobalt editor instance and shows the live fragment JSON below it.
+
+
+Links are created with Ctrl+K. If the selection starts inside an existing link, Ctrl+K adds an inverse `</a>` annotation for the selected range; otherwise it prompts for a URL and adds an `<a href="...">` annotation.

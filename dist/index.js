@@ -3,5 +3,5 @@ export { AddAnnotationCommand, applyCommand, applyCommands, DeleteRangeCommand, 
 export { edit } from "./editor.js";
 export { render } from "./render.js";
 export { generateRuns, getEffectiveState } from "./runs.js";
-export { AnnotationRegistry, createAnnotationTag, defaultRegistry, parseAnnotationTag } from "./registry.js";
+export { AnnotationRegistry, createAnnotationTag, createLinkAnnotationTag, defaultRegistry, parseAnnotationTag } from "./registry.js";
 //# sourceMappingURL=index.js.map

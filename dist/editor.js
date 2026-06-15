@@ -1,6 +1,6 @@
 import { applyCommands, AddAnnotationCommand, DeleteRangeCommand, InsertTextCommand } from "./commands.js";
 import { createEditorState, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
-import { createAnnotationTag } from "./registry.js";
+import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
 import { getSelectionRange, setSelectionRange } from "./selection.js";
@@ -19,6 +19,11 @@ export function edit(element, fragment) {
             return;
         }
         if (!event.ctrlKey) {
+            return;
+        }
+        if (event.key.toLowerCase() === "k") {
+            event.preventDefault();
+            toggleLink();
             return;
         }
         const annotation = getShortcutAnnotation(event);
@@ -60,6 +65,52 @@ export function edit(element, fragment) {
             new AddAnnotationCommand([selection.start, selection.end], tag)
         ]);
         rerender(selection.start, selection.end);
+    }
+    function toggleLink() {
+        const selection = getSelectionRange(element);
+        if (!selection) {
+            return;
+        }
+        const currentState = getEffectiveState(fragment.annotations, selection.start);
+        if (selection.start === selection.end) {
+            if (currentState.link) {
+                state.pendingLink = null;
+            }
+            else {
+                const href = promptForHref();
+                if (!href) {
+                    return;
+                }
+                state.pendingLink = href;
+            }
+            rerender(selection.start, selection.end);
+            return;
+        }
+        let tag;
+        if (currentState.link) {
+            tag = "</a>";
+        }
+        else {
+            const href = promptForHref();
+            if (!href) {
+                return;
+            }
+            tag = createLinkAnnotationTag(href);
+        }
+        applyCommands(fragment, [
+            new AddAnnotationCommand([selection.start, selection.end], tag)
+        ]);
+        rerender(selection.start, selection.end);
+    }
+    function promptForHref() {
+        const href = window.prompt("Enter URL");
+        if (href === null) {
+            return null;
+        }
+        const trimmed = href.trim();
+        return trimmed.length > 0
+            ? trimmed
+            : null;
     }
     function buildInputCommands(event, selectionStart, selectionEnd) {
         switch (event.inputType) {

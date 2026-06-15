@@ -60,7 +60,7 @@ export function parseAnnotationTag(tag, registry = defaultRegistry) {
         return {
             name: "link",
             enabled: true,
-            href: linkMatch[1]
+            href: unescapeAttribute(linkMatch[1])
         };
     }
     if (trimmed === "</a>") {
@@ -79,5 +79,22 @@ export function createAnnotationTag(name, enabled, registry = defaultRegistry) {
     return enabled
         ? definition.enableTag
         : definition.disableTag;
+}
+export function createLinkAnnotationTag(href) {
+    return `<a href="${escapeAttribute(href)}">`;
+}
+function escapeAttribute(value) {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+function unescapeAttribute(value) {
+    return value
+        .replace(/&quot;/g, '"')
+        .replace(/&gt;/g, ">")
+        .replace(/&lt;/g, "<")
+        .replace(/&amp;/g, "&");
 }
 //# sourceMappingURL=registry.js.map

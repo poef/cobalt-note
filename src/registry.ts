@@ -94,7 +94,7 @@ export function parseAnnotationTag(
         return {
             name: "link",
             enabled: true,
-            href: linkMatch[1]
+            href: unescapeAttribute(linkMatch[1])
         };
     }
 
@@ -122,4 +122,26 @@ export function createAnnotationTag(
     return enabled
         ? definition.enableTag
         : definition.disableTag;
+}
+
+export function createLinkAnnotationTag(
+    href: string
+): string {
+    return `<a href="${escapeAttribute(href)}">`;
+}
+
+function escapeAttribute(value: string): string {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function unescapeAttribute(value: string): string {
+    return value
+        .replace(/&quot;/g, '"')
+        .replace(/&gt;/g, ">")
+        .replace(/&lt;/g, "<")
+        .replace(/&amp;/g, "&");
 }

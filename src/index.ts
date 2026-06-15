@@ -47,6 +47,7 @@ export type {
 export {
     AnnotationRegistry,
     createAnnotationTag,
+    createLinkAnnotationTag,
     defaultRegistry,
     parseAnnotationTag
 } from "./registry.js";
