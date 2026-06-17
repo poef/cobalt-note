@@ -24,7 +24,7 @@ export function editCodeNote(element, value, options = {}) {
         return value.text.split("\n").length;
     }
     function getSelectionStartLine() {
-        return value.text.slice(0, element.selectionStart).split("\n").length - 1;
+        return getLineIndexAtOffset(value.text, element.selectionStart);
     }
     const editor = {
         element,
@@ -57,8 +57,8 @@ export function editCodeNote(element, value, options = {}) {
                 end: element.selectionEnd
             };
         },
-        getCaretClientRect(_offset) {
-            return getTextareaApproximateCaretRect(element);
+        getCaretClientRect(offset) {
+            return getTextareaCaretRect(element, offset);
         },
         isCaretOnFirstVisualLine() {
             return getSelectionStartLine() === 0;
@@ -66,20 +66,12 @@ export function editCodeNote(element, value, options = {}) {
         isCaretOnLastVisualLine() {
             return getSelectionStartLine() >= getLineCount() - 1;
         },
-        focusNearestPoint(_x, y) {
-            const rect = element.getBoundingClientRect();
-            const style = getComputedStyle(element);
-            const lineHeight = parseLineHeight(style);
-            const line = clamp(Math.floor((y - rect.top + element.scrollTop) / lineHeight), 0, getLineCount() - 1);
-            const offset = getLineStartOffset(value.text, line);
+        focusNearestPoint(x, y) {
+            const offset = getTextareaOffsetAtPoint(element, x, y);
             this.focus(offset, offset);
         },
-        getOffsetAtPoint(_x, y) {
-            const rect = element.getBoundingClientRect();
-            const style = getComputedStyle(element);
-            const lineHeight = parseLineHeight(style);
-            const line = clamp(Math.floor((y - rect.top + element.scrollTop) / lineHeight), 0, getLineCount() - 1);
-            return getLineStartOffset(value.text, line);
+        getOffsetAtPoint(x, y) {
+            return getTextareaOffsetAtPoint(element, x, y);
         },
         getWordRangeAtPoint(x, y) {
             const offset = this.getOffsetAtPoint(x, y);
@@ -208,21 +200,71 @@ function setTextareaSelection(textarea, start, end) {
     const length = textarea.value.length;
     textarea.setSelectionRange(clamp(start, 0, length), clamp(end, 0, length));
 }
-function getTextareaApproximateCaretRect(textarea) {
+function getTextareaCaretRect(textarea, offset = textarea.selectionStart) {
+    const metrics = getTextareaMetrics(textarea);
+    const normalizedOffset = clamp(offset, 0, textarea.value.length);
+    const line = getLineIndexAtOffset(textarea.value, normalizedOffset);
+    const lineStart = getLineStartOffset(textarea.value, line);
+    const column = normalizedOffset - lineStart;
+    return new DOMRect(metrics.contentLeft + column * metrics.characterWidth - textarea.scrollLeft, metrics.contentTop + line * metrics.lineHeight - textarea.scrollTop, 1, metrics.lineHeight);
+}
+function getTextareaOffsetAtPoint(textarea, x, y) {
+    const metrics = getTextareaMetrics(textarea);
+    const lineCount = textarea.value.split("\n").length;
+    const line = clamp(Math.floor((y - metrics.contentTop + textarea.scrollTop) / metrics.lineHeight), 0, lineCount - 1);
+    const lineStart = getLineStartOffset(textarea.value, line);
+    const lineEnd = getLineEndOffset(textarea.value, lineStart);
+    const column = clamp(Math.round((x - metrics.contentLeft + textarea.scrollLeft) / metrics.characterWidth), 0, lineEnd - lineStart);
+    return lineStart + column;
+}
+function getTextareaMetrics(textarea) {
     const rect = textarea.getBoundingClientRect();
     const style = getComputedStyle(textarea);
     const lineHeight = parseLineHeight(style);
-    const offset = textarea.selectionStart;
-    const line = textarea.value.slice(0, offset).split("\n").length - 1;
-    return new DOMRect(rect.left, rect.top + line * lineHeight - textarea.scrollTop, 1, lineHeight);
+    const fontSize = parseCssPixels(style.fontSize, 16);
+    const characterWidth = measureMonospaceCharacterWidth(style, fontSize);
+    return {
+        contentLeft: rect.left + parseCssPixels(style.borderLeftWidth) + parseCssPixels(style.paddingLeft),
+        contentTop: rect.top + parseCssPixels(style.borderTopWidth) + parseCssPixels(style.paddingTop),
+        lineHeight,
+        characterWidth
+    };
+}
+function measureMonospaceCharacterWidth(style, fontSize) {
+    const sample = document.createElement("span");
+    sample.textContent = "mmmmmmmmmm";
+    sample.style.position = "absolute";
+    sample.style.visibility = "hidden";
+    sample.style.whiteSpace = "pre";
+    sample.style.font = [
+        style.fontStyle,
+        style.fontVariant,
+        style.fontWeight,
+        style.fontSize,
+        style.fontFamily
+    ].filter(Boolean).join(" ");
+    document.body.append(sample);
+    const width = sample.getBoundingClientRect().width / 10;
+    sample.remove();
+    if (Number.isFinite(width) && width > 0) {
+        return width;
+    }
+    return fontSize * 0.6;
 }
 function parseLineHeight(style) {
     const parsed = Number.parseFloat(style.lineHeight);
     if (Number.isFinite(parsed)) {
         return parsed;
     }
-    const fontSize = Number.parseFloat(style.fontSize);
-    return Number.isFinite(fontSize) ? fontSize * 1.4 : 16;
+    const fontSize = parseCssPixels(style.fontSize, 16);
+    return fontSize * 1.4;
+}
+function parseCssPixels(value, fallback = 0) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+function getLineIndexAtOffset(text, offset) {
+    return text.slice(0, clamp(offset, 0, text.length)).split("\n").length - 1;
 }
 function getLineStartOffset(text, lineIndex) {
     if (lineIndex <= 0) {
@@ -237,6 +279,10 @@ function getLineStartOffset(text, lineIndex) {
         offset = next + 1;
     }
     return offset;
+}
+function getLineEndOffset(text, lineStart) {
+    const nextNewline = text.indexOf("\n", lineStart);
+    return nextNewline === -1 ? text.length : nextNewline;
 }
 function getLineRange(text, offset) {
     const start = text.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;

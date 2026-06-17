@@ -61,7 +61,7 @@ export function editCodeNote(
     }
 
     function getSelectionStartLine(): number {
-        return value.text.slice(0, element.selectionStart).split("\n").length - 1;
+        return getLineIndexAtOffset(value.text, element.selectionStart);
     }
 
     const editor: CodeNoteEditor = {
@@ -99,8 +99,8 @@ export function editCodeNote(
                 end: element.selectionEnd
             };
         },
-        getCaretClientRect(_offset?: number): DOMRect | null {
-            return getTextareaApproximateCaretRect(element);
+        getCaretClientRect(offset?: number): DOMRect | null {
+            return getTextareaCaretRect(element, offset);
         },
         isCaretOnFirstVisualLine(): boolean {
             return getSelectionStartLine() === 0;
@@ -108,22 +108,13 @@ export function editCodeNote(
         isCaretOnLastVisualLine(): boolean {
             return getSelectionStartLine() >= getLineCount() - 1;
         },
-        focusNearestPoint(_x: number, y: number): void {
-            const rect = element.getBoundingClientRect();
-            const style = getComputedStyle(element);
-            const lineHeight = parseLineHeight(style);
-            const line = clamp(Math.floor((y - rect.top + element.scrollTop) / lineHeight), 0, getLineCount() - 1);
-            const offset = getLineStartOffset(value.text, line);
+        focusNearestPoint(x: number, y: number): void {
+            const offset = getTextareaOffsetAtPoint(element, x, y);
 
             this.focus(offset, offset);
         },
-        getOffsetAtPoint(_x: number, y: number): number {
-            const rect = element.getBoundingClientRect();
-            const style = getComputedStyle(element);
-            const lineHeight = parseLineHeight(style);
-            const line = clamp(Math.floor((y - rect.top + element.scrollTop) / lineHeight), 0, getLineCount() - 1);
-
-            return getLineStartOffset(value.text, line);
+        getOffsetAtPoint(x: number, y: number): number {
+            return getTextareaOffsetAtPoint(element, x, y);
         },
         getWordRangeAtPoint(x: number, y: number): LocalSelectionRange {
             const offset = this.getOffsetAtPoint(x, y);
@@ -271,19 +262,85 @@ function setTextareaSelection(textarea: HTMLTextAreaElement, start: number, end:
     );
 }
 
-function getTextareaApproximateCaretRect(textarea: HTMLTextAreaElement): DOMRect | null {
+function getTextareaCaretRect(textarea: HTMLTextAreaElement, offset = textarea.selectionStart): DOMRect | null {
+    const metrics = getTextareaMetrics(textarea);
+    const normalizedOffset = clamp(offset, 0, textarea.value.length);
+    const line = getLineIndexAtOffset(textarea.value, normalizedOffset);
+    const lineStart = getLineStartOffset(textarea.value, line);
+    const column = normalizedOffset - lineStart;
+
+    return new DOMRect(
+        metrics.contentLeft + column * metrics.characterWidth - textarea.scrollLeft,
+        metrics.contentTop + line * metrics.lineHeight - textarea.scrollTop,
+        1,
+        metrics.lineHeight
+    );
+}
+
+function getTextareaOffsetAtPoint(textarea: HTMLTextAreaElement, x: number, y: number): number {
+    const metrics = getTextareaMetrics(textarea);
+    const lineCount = textarea.value.split("\n").length;
+    const line = clamp(
+        Math.floor((y - metrics.contentTop + textarea.scrollTop) / metrics.lineHeight),
+        0,
+        lineCount - 1
+    );
+    const lineStart = getLineStartOffset(textarea.value, line);
+    const lineEnd = getLineEndOffset(textarea.value, lineStart);
+    const column = clamp(
+        Math.round((x - metrics.contentLeft + textarea.scrollLeft) / metrics.characterWidth),
+        0,
+        lineEnd - lineStart
+    );
+
+    return lineStart + column;
+}
+
+interface TextareaMetrics {
+    contentLeft: number;
+    contentTop: number;
+    lineHeight: number;
+    characterWidth: number;
+}
+
+function getTextareaMetrics(textarea: HTMLTextAreaElement): TextareaMetrics {
     const rect = textarea.getBoundingClientRect();
     const style = getComputedStyle(textarea);
     const lineHeight = parseLineHeight(style);
-    const offset = textarea.selectionStart;
-    const line = textarea.value.slice(0, offset).split("\n").length - 1;
+    const fontSize = parseCssPixels(style.fontSize, 16);
+    const characterWidth = measureMonospaceCharacterWidth(style, fontSize);
 
-    return new DOMRect(
-        rect.left,
-        rect.top + line * lineHeight - textarea.scrollTop,
-        1,
-        lineHeight
-    );
+    return {
+        contentLeft: rect.left + parseCssPixels(style.borderLeftWidth) + parseCssPixels(style.paddingLeft),
+        contentTop: rect.top + parseCssPixels(style.borderTopWidth) + parseCssPixels(style.paddingTop),
+        lineHeight,
+        characterWidth
+    };
+}
+
+function measureMonospaceCharacterWidth(style: CSSStyleDeclaration, fontSize: number): number {
+    const sample = document.createElement("span");
+    sample.textContent = "mmmmmmmmmm";
+    sample.style.position = "absolute";
+    sample.style.visibility = "hidden";
+    sample.style.whiteSpace = "pre";
+    sample.style.font = [
+        style.fontStyle,
+        style.fontVariant,
+        style.fontWeight,
+        style.fontSize,
+        style.fontFamily
+    ].filter(Boolean).join(" ");
+
+    document.body.append(sample);
+    const width = sample.getBoundingClientRect().width / 10;
+    sample.remove();
+
+    if (Number.isFinite(width) && width > 0) {
+        return width;
+    }
+
+    return fontSize * 0.6;
 }
 
 function parseLineHeight(style: CSSStyleDeclaration): number {
@@ -293,8 +350,17 @@ function parseLineHeight(style: CSSStyleDeclaration): number {
         return parsed;
     }
 
-    const fontSize = Number.parseFloat(style.fontSize);
-    return Number.isFinite(fontSize) ? fontSize * 1.4 : 16;
+    const fontSize = parseCssPixels(style.fontSize, 16);
+    return fontSize * 1.4;
+}
+
+function parseCssPixels(value: string, fallback = 0): number {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getLineIndexAtOffset(text: string, offset: number): number {
+    return text.slice(0, clamp(offset, 0, text.length)).split("\n").length - 1;
 }
 
 function getLineStartOffset(text: string, lineIndex: number): number {
@@ -315,6 +381,11 @@ function getLineStartOffset(text: string, lineIndex: number): number {
     }
 
     return offset;
+}
+
+function getLineEndOffset(text: string, lineStart: number): number {
+    const nextNewline = text.indexOf("\n", lineStart);
+    return nextNewline === -1 ? text.length : nextNewline;
 }
 
 function getLineRange(text: string, offset: number): LocalSelectionRange {

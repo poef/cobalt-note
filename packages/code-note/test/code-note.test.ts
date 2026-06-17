@@ -110,4 +110,25 @@ describe("code note adapter", () => {
         notebook.setAdapters([rich, first]);
         expect(notebook.joinWithNext(0)).toBeNull();
     });
+    test("vertical navigation preserves desired X in textarea notes", () => {
+        document.body.innerHTML = "";
+        const { element, editor } = createCodeEditor("abcde\nab\nabcdef");
+        const notebook = new NotebookController();
+        notebook.setAdapters([editor]);
+
+        element.style.fontSize = "10px";
+        element.style.lineHeight = "20px";
+        element.style.padding = "0px";
+        element.style.borderWidth = "0px";
+        element.getBoundingClientRect = () => new DOMRect(0, 0, 120, 60);
+
+        editor.focus(4, 4);
+
+        expect(notebook.moveDown(0)).toBe(true);
+        expect(editor.getSelection()).toEqual({ start: 8, end: 8 });
+
+        expect(notebook.moveDown(0)).toBe(true);
+        expect(editor.getSelection()).toEqual({ start: 13, end: 13 });
+    });
+
 });
