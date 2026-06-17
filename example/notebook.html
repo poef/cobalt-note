@@ -32,6 +32,11 @@
             box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
         }
 
+        [data-cobalt-selection="true"] {
+            background: Highlight;
+            color: HighlightText;
+        }
+
         pre {
             background: #f6f6f6;
             padding: 12px;
@@ -54,6 +59,8 @@
 
     <p>
         Normal <kbd>Enter</kbd> still inserts a line break inside the current note.
+        Hold <kbd>Shift</kbd> while pressing <kbd>ArrowLeft</kbd> or
+        <kbd>ArrowRight</kbd> to extend a visual selection across note boundaries.
     </p>
 
     <div id="notes"></div>
@@ -84,6 +91,7 @@
         const notesElement = document.querySelector("#notes");
         const notebookElement = document.querySelector("#notebook");
         let editors = [];
+        let notebookSelection = null;
 
         function renderNotebook(focusIndex = null, focusOffset = 0) {
             for (const editor of editors) {
@@ -105,6 +113,24 @@
 
                     if (!selection) {
                         return;
+                    }
+
+                    if (event.shiftKey && event.key === "ArrowLeft") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        extendNotebookSelection(index, selection.start, "left");
+                        return;
+                    }
+
+                    if (event.shiftKey && event.key === "ArrowRight") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        extendNotebookSelection(index, selection.start, "right");
+                        return;
+                    }
+
+                    if (!event.shiftKey && isNavigationOrEditingKey(event)) {
+                        clearNotebookSelection();
                     }
 
                     if (event.key === "Enter" && event.ctrlKey) {
@@ -214,6 +240,139 @@
                     editors[focusIndex]?.focus(focusOffset, focusOffset);
                 });
             }
+        }
+
+
+        function isNavigationOrEditingKey(event) {
+            return (
+                event.key.startsWith("Arrow") ||
+                event.key === "Backspace" ||
+                event.key === "Delete" ||
+                event.key === "Enter" ||
+                event.key.length === 1
+            );
+        }
+
+        function extendNotebookSelection(index, offset, direction) {
+            if (!notebookSelection) {
+                notebookSelection = {
+                    anchor: { noteIndex: index, offset },
+                    focus: { noteIndex: index, offset }
+                };
+            }
+
+            notebookSelection.focus = direction === "left"
+                ? movePointLeft(notebookSelection.focus)
+                : movePointRight(notebookSelection.focus);
+
+            const focus = notebookSelection.focus;
+            editors[focus.noteIndex]?.focus(focus.offset, focus.offset);
+            updateNotebookSelectionDecorations();
+        }
+
+        function movePointLeft(point) {
+            if (point.offset > 0) {
+                return {
+                    noteIndex: point.noteIndex,
+                    offset: point.offset - 1
+                };
+            }
+
+            if (point.noteIndex === 0) {
+                return point;
+            }
+
+            const previousIndex = point.noteIndex - 1;
+
+            return {
+                noteIndex: previousIndex,
+                offset: notes[previousIndex].text.length
+            };
+        }
+
+        function movePointRight(point) {
+            const noteLength = notes[point.noteIndex].text.length;
+
+            if (point.offset < noteLength) {
+                return {
+                    noteIndex: point.noteIndex,
+                    offset: point.offset + 1
+                };
+            }
+
+            if (point.noteIndex >= notes.length - 1) {
+                return point;
+            }
+
+            return {
+                noteIndex: point.noteIndex + 1,
+                offset: 0
+            };
+        }
+
+        function clearNotebookSelection() {
+            if (!notebookSelection) {
+                return;
+            }
+
+            notebookSelection = null;
+
+            for (const editor of editors) {
+                editor.clearSelectionRanges();
+            }
+        }
+
+        function updateNotebookSelectionDecorations() {
+            for (let i = 0; i < editors.length; i++) {
+                const range = getSelectedRangeForNote(i);
+
+                if (range) {
+                    editors[i].showSelectionRanges([range]);
+                } else {
+                    editors[i].clearSelectionRanges();
+                }
+            }
+        }
+
+        function getSelectedRangeForNote(index) {
+            if (!notebookSelection) {
+                return null;
+            }
+
+            const ordered = getOrderedNotebookSelection();
+
+            if (index < ordered.start.noteIndex || index > ordered.end.noteIndex) {
+                return null;
+            }
+
+            const start = index === ordered.start.noteIndex
+                ? ordered.start.offset
+                : 0;
+            const end = index === ordered.end.noteIndex
+                ? ordered.end.offset
+                : notes[index].text.length;
+
+            return end > start
+                ? { start, end }
+                : null;
+        }
+
+        function getOrderedNotebookSelection() {
+            const { anchor, focus } = notebookSelection;
+
+            if (compareNotebookPoints(anchor, focus) <= 0) {
+                return { start: anchor, end: focus };
+            }
+
+            return { start: focus, end: anchor };
+        }
+
+        function compareNotebookPoints(a, b) {
+            if (a.noteIndex !== b.noteIndex) {
+                return a.noteIndex - b.noteIndex;
+            }
+
+            return a.offset - b.offset;
         }
 
 

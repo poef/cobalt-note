@@ -75,6 +75,13 @@ export class AnnotationRegistry {
 export const defaultRegistry = new AnnotationRegistry();
 
 defaultRegistry.register({
+    name: "__selection",
+    tag: '<span data-cobalt-selection="true">',
+    priority: -100,
+    supportsPending: false
+});
+
+defaultRegistry.register({
     name: "link",
     tag: "<a>",
     priority: 0,

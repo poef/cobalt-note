@@ -1,6 +1,6 @@
 import { applyCommands, Command, AddAnnotationCommand, DeleteRangeCommand, InsertFragmentCommand, InsertTextCommand } from "./commands.js";
 import { createEditorState, EditorState, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
-import { Fragment } from "./fragment.js";
+import { Annotation, Fragment } from "./fragment.js";
 import { getClipboardFragment, readFragmentFromClipboard, writeFragmentToClipboard } from "./clipboard.js";
 import { AnnotationDefinition, createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from "./registry.js";
 import { render } from "./render.js";
@@ -24,7 +24,41 @@ export interface Editor {
     isCaretOnFirstVisualLine(): boolean;
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
+    showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[]): void;
+    clearSelectionRanges(): void;
     destroy(): void;
+}
+
+function renderDecoratedFragment(
+    fragment: Fragment,
+    ranges: ReturnType<typeof getSelectionRange>[]
+): string {
+    if (ranges.length === 0) {
+        return render(fragment);
+    }
+
+    const maxOrder = fragment.annotations.reduce(
+        (max, annotation) => Math.max(max, annotation.order),
+        0
+    );
+
+    const annotations: Annotation[] = [
+        ...fragment.annotations,
+        ...ranges
+            .filter((range): range is NonNullable<typeof range> =>
+                range !== null && range.end > range.start
+            )
+            .map((range, index) => ({
+                range: [range.start, range.end] as [number, number],
+                tag: '<span data-cobalt-selection="true">',
+                order: maxOrder + index + 1
+            }))
+    ];
+
+    return render({
+        text: fragment.text,
+        annotations
+    });
 }
 
 export function edit(
@@ -32,12 +66,13 @@ export function edit(
     fragment: Fragment
 ): Editor {
     const state = createEditorState();
+    let selectionDecorationRanges: ReturnType<typeof getSelectionRange>[] = [];
 
     function rerender(
         start?: number,
         end?: number
     ): void {
-        element.innerHTML = render(fragment);
+        element.innerHTML = renderDecoratedFragment(fragment, selectionDecorationRanges);
 
         if (
             start !== undefined &&
@@ -97,6 +132,23 @@ export function edit(
             const offset = getOffsetAtPoint(element, x, y);
 
             this.focus(offset, offset);
+        },
+        showSelectionRanges(ranges): void {
+            selectionDecorationRanges = ranges.filter((range): range is NonNullable<typeof range> =>
+                range !== null && range.end > range.start
+            );
+
+            const selection = getSelectionRange(element);
+            rerender(selection?.start, selection?.end);
+        },
+        clearSelectionRanges(): void {
+            if (selectionDecorationRanges.length === 0) {
+                return;
+            }
+
+            selectionDecorationRanges = [];
+            const selection = getSelectionRange(element);
+            rerender(selection?.start, selection?.end);
         },
         destroy(): void {
             element.removeEventListener("keydown", handleKeyDown);

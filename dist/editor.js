@@ -5,10 +5,31 @@ import { createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from ".
 import { render } from "./render.js";
 import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
 import { getCaretClientRect, getOffsetAtPoint, getSelectionRange, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "./selection.js";
+function renderDecoratedFragment(fragment, ranges) {
+    if (ranges.length === 0) {
+        return render(fragment);
+    }
+    const maxOrder = fragment.annotations.reduce((max, annotation) => Math.max(max, annotation.order), 0);
+    const annotations = [
+        ...fragment.annotations,
+        ...ranges
+            .filter((range) => range !== null && range.end > range.start)
+            .map((range, index) => ({
+            range: [range.start, range.end],
+            tag: '<span data-cobalt-selection="true">',
+            order: maxOrder + index + 1
+        }))
+    ];
+    return render({
+        text: fragment.text,
+        annotations
+    });
+}
 export function edit(element, fragment) {
     const state = createEditorState();
+    let selectionDecorationRanges = [];
     function rerender(start, end) {
-        element.innerHTML = render(fragment);
+        element.innerHTML = renderDecoratedFragment(fragment, selectionDecorationRanges);
         if (start !== undefined &&
             end !== undefined) {
             setSelectionRange(element, start, end);
@@ -52,6 +73,19 @@ export function edit(element, fragment) {
         focusNearestPoint(x, y) {
             const offset = getOffsetAtPoint(element, x, y);
             this.focus(offset, offset);
+        },
+        showSelectionRanges(ranges) {
+            selectionDecorationRanges = ranges.filter((range) => range !== null && range.end > range.start);
+            const selection = getSelectionRange(element);
+            rerender(selection?.start, selection?.end);
+        },
+        clearSelectionRanges() {
+            if (selectionDecorationRanges.length === 0) {
+                return;
+            }
+            selectionDecorationRanges = [];
+            const selection = getSelectionRange(element);
+            rerender(selection?.start, selection?.end);
         },
         destroy() {
             element.removeEventListener("keydown", handleKeyDown);

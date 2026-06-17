@@ -122,3 +122,11 @@ element.addEventListener("keydown", event => {
 ```
 
 `joinFragments(first, second)` returns a joined fragment and the original end offset of `first`, which is the natural caret position after joining. It inserts one newline between fragments unless the boundary already contains one. Adjacent annotations with the same `tag` and `order` are merged again after joining.
+
+### Cross-note visual selection
+
+The notebook demo also contains an experimental notebook-level selection model. Holding Shift while pressing ArrowLeft or ArrowRight extends a logical selection across note boundaries. The notebook stores the selection as `{ anchor, focus }` points with note indexes and offsets, then asks each editor to render temporary visual selection decorations for its local selected range.
+
+The editor remains a single-note component. It does not know about sibling notes; it only exposes `showSelectionRanges()` and `clearSelectionRanges()` so the parent application can draw notebook-level selections without changing the underlying fragment.
+
+Cross-note delete/copy/cut/paste is intentionally left as a later step.

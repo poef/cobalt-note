@@ -11,6 +11,8 @@ export interface Editor {
     isCaretOnFirstVisualLine(): boolean;
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
+    showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[]): void;
+    clearSelectionRanges(): void;
     destroy(): void;
 }
 export declare function edit(element: HTMLElement, fragment: Fragment): Editor;
