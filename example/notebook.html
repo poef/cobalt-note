@@ -68,7 +68,15 @@
     <pre id="notebook"></pre>
 
     <script type="module">
-        import { concatFragments, deleteRange, edit, joinFragments, sliceFragment, splitFragment } from "../dist/index.js";
+        import {
+            NotebookController,
+            concatFragments,
+            deleteRange,
+            edit,
+            joinFragments,
+            sliceFragment,
+            splitFragment
+        } from "../dist/index.js";
 
         const notes = [
             {
@@ -89,8 +97,8 @@
 
         const notesElement = document.querySelector("#notes");
         const notebookElement = document.querySelector("#notebook");
+        const notebook = new NotebookController();
         let editors = [];
-        let notebookSelection = null;
 
         function renderNotebook(focusIndex = null, focusOffset = 0) {
             for (const editor of editors) {
@@ -98,6 +106,7 @@
             }
 
             editors = [];
+            notebook.clearSelection();
             notesElement.textContent = "";
 
             notes.forEach((fragment, index) => {
@@ -106,158 +115,24 @@
                 notesElement.append(element);
 
                 const editor = edit(element, fragment);
+                editors.push(editor);
 
                 element.addEventListener("keydown", event => {
-                    const selection = editor.getSelection();
-
-                    if (!selection) {
-                        return;
-                    }
-
-                    if (event.shiftKey && event.key === "ArrowLeft") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        extendNotebookSelection(index, selection.start, "left");
-                        return;
-                    }
-
-                    if (event.shiftKey && event.key === "ArrowRight") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        extendNotebookSelection(index, selection.start, "right");
-                        return;
-                    }
-
-                    if (event.shiftKey && event.key === "ArrowUp") {
-                        if (extendNotebookSelectionVertically(index, selection.start, "up")) {
-                            event.preventDefault();
-                            event.stopPropagation();
-                        }
-
-                        return;
-                    }
-
-                    if (event.shiftKey && event.key === "ArrowDown") {
-                        if (extendNotebookSelectionVertically(index, selection.start, "down")) {
-                            event.preventDefault();
-                            event.stopPropagation();
-                        }
-
-                        return;
-                    }
-
-                    if (notebookSelection && (event.key === "Backspace" || event.key === "Delete")) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        deleteNotebookSelection();
-                        return;
-                    }
-
-                    if (!event.shiftKey && isNavigationOrEditingKey(event)) {
-                        clearNotebookSelection();
-                    }
-
-                    if (event.key === "Enter" && event.ctrlKey) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        splitNote(index, selection.start);
-                        return;
-                    }
-
-                    if (selection.start !== selection.end) {
-                        return;
-                    }
-
-                    if (event.key === "Backspace" && selection.start === 0) {
-                        if (index === 0) {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        event.stopPropagation();
-                        joinWithPreviousNote(index);
-                        return;
-                    }
-
-                    if (event.key === "Delete" && selection.start === fragment.text.length) {
-                        if (index >= notes.length - 1) {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        event.stopPropagation();
-                        joinWithNextNote(index);
-                        return;
-                    }
-
-                    if (event.key === "ArrowLeft" && selection.start === 0) {
-                        if (index === 0) {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        event.stopPropagation();
-                        editors[index - 1].focus(notes[index - 1].text.length);
-                        return;
-                    }
-
-                    if (event.key === "ArrowRight" && selection.start === fragment.text.length) {
-                        if (index >= notes.length - 1) {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        event.stopPropagation();
-                        editors[index + 1].focus(0);
-                        return;
-                    }
-
-                    if (event.key === "ArrowUp" && editor.isCaretOnFirstVisualLine()) {
-                        if (index === 0) {
-                            return;
-                        }
-
-                        const rect = editor.getCaretClientRect();
-                        const targetRect = editors[index - 1].getCaretClientRect(
-                            notes[index - 1].text.length
-                        );
-
-                        if (!rect || !targetRect) {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        event.stopPropagation();
-                        editors[index - 1].focusNearestPoint(
-                            rect.left,
-                            getVerticalCenter(targetRect)
-                        );
-                        return;
-                    }
-
-                    if (event.key === "ArrowDown" && editor.isCaretOnLastVisualLine()) {
-                        if (index >= notes.length - 1) {
-                            return;
-                        }
-
-                        const rect = editor.getCaretClientRect();
-                        const targetRect = editors[index + 1].getCaretClientRect(0);
-
-                        if (!rect || !targetRect) {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        event.stopPropagation();
-                        editors[index + 1].focusNearestPoint(
-                            rect.left,
-                            getVerticalCenter(targetRect)
-                        );
-                    }
+                    handleNotebookKeyDown(event, index, editor);
                 }, { capture: true });
-
-                editors.push(editor);
             });
+
+            notebook.setAdapters(editors.map((editor, index) => ({
+                getLength: () => notes[index].text.length,
+                focus: (start, end = start) => editor.focus(start, end),
+                getSelection: () => editor.getSelection(),
+                getCaretClientRect: offset => editor.getCaretClientRect(offset),
+                isCaretOnFirstVisualLine: () => editor.isCaretOnFirstVisualLine(),
+                isCaretOnLastVisualLine: () => editor.isCaretOnLastVisualLine(),
+                focusNearestPoint: (x, y) => editor.focusNearestPoint(x, y),
+                showSelectionRanges: ranges => editor.showSelectionRanges(ranges),
+                clearSelectionRanges: () => editor.clearSelectionRanges()
+            })));
 
             if (focusIndex !== null) {
                 requestAnimationFrame(() => {
@@ -266,6 +141,112 @@
             }
         }
 
+        function handleNotebookKeyDown(event, index, editor) {
+            const selection = editor.getSelection();
+
+            if (!selection) {
+                return;
+            }
+
+            if (event.shiftKey && event.key === "ArrowLeft") {
+                event.preventDefault();
+                event.stopPropagation();
+                notebook.extendLeft(index, selection.start);
+                return;
+            }
+
+            if (event.shiftKey && event.key === "ArrowRight") {
+                event.preventDefault();
+                event.stopPropagation();
+                notebook.extendRight(index, selection.start);
+                return;
+            }
+
+            if (event.shiftKey && event.key === "ArrowUp") {
+                if (notebook.extendUp(index, selection.start)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+                return;
+            }
+
+            if (event.shiftKey && event.key === "ArrowDown") {
+                if (notebook.extendDown(index, selection.start)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+                return;
+            }
+
+            if (notebook.hasSelection() && (event.key === "Backspace" || event.key === "Delete")) {
+                event.preventDefault();
+                event.stopPropagation();
+                deleteNotebookSelection();
+                return;
+            }
+
+            if (!event.shiftKey && isNavigationOrEditingKey(event)) {
+                notebook.clearSelection();
+            }
+
+            if (event.key === "Enter" && event.ctrlKey) {
+                event.preventDefault();
+                event.stopPropagation();
+                splitNote(index, selection.start);
+                return;
+            }
+
+            if (selection.start !== selection.end) {
+                return;
+            }
+
+            if (event.key === "Backspace" && selection.start === 0) {
+                if (index === 0) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                joinWithPreviousNote(index);
+                return;
+            }
+
+            if (event.key === "Delete" && selection.start === notes[index].text.length) {
+                if (index >= notes.length - 1) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                joinWithNextNote(index);
+                return;
+            }
+
+            if (event.key === "ArrowLeft" && notebook.moveLeft(index, selection.start)) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+
+            if (event.key === "ArrowRight" && notebook.moveRight(index, selection.start)) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+
+            if (event.key === "ArrowUp" && notebook.moveUp(index)) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+
+            if (event.key === "ArrowDown" && notebook.moveDown(index)) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }
 
         function isNavigationOrEditingKey(event) {
             return (
@@ -277,164 +258,17 @@
             );
         }
 
-        function extendNotebookSelection(index, offset, direction) {
-            ensureNotebookSelection(index, offset);
-
-            notebookSelection.focus = direction === "left"
-                ? movePointLeft(notebookSelection.focus)
-                : movePointRight(notebookSelection.focus);
-
-            const focus = notebookSelection.focus;
-            editors[focus.noteIndex]?.focus(focus.offset, focus.offset);
-            updateNotebookSelectionDecorations();
-        }
-
-        function extendNotebookSelectionVertically(index, offset, direction) {
-            ensureNotebookSelection(index, offset);
-
-            const focus = notebookSelection.focus;
-            const sourceEditor = editors[focus.noteIndex];
-
-            if (!sourceEditor) {
-                return false;
-            }
-
-            sourceEditor.focus(focus.offset, focus.offset);
-
-            const sourceRect = sourceEditor.getCaretClientRect();
-
-            if (!sourceRect) {
-                return false;
-            }
-
-            if (direction === "up") {
-                if (focus.noteIndex === 0 || !sourceEditor.isCaretOnFirstVisualLine()) {
-                    return false;
-                }
-
-                const targetIndex = focus.noteIndex - 1;
-                const targetRect = editors[targetIndex].getCaretClientRect(
-                    notes[targetIndex].text.length
-                );
-
-                if (!targetRect) {
-                    return false;
-                }
-
-                editors[targetIndex].focusNearestPoint(
-                    sourceRect.left,
-                    getVerticalCenter(targetRect)
-                );
-
-                const targetSelection = editors[targetIndex].getSelection();
-
-                if (!targetSelection) {
-                    return false;
-                }
-
-                notebookSelection.focus = {
-                    noteIndex: targetIndex,
-                    offset: targetSelection.start
-                };
-            } else {
-                if (focus.noteIndex >= notes.length - 1 || !sourceEditor.isCaretOnLastVisualLine()) {
-                    return false;
-                }
-
-                const targetIndex = focus.noteIndex + 1;
-                const targetRect = editors[targetIndex].getCaretClientRect(0);
-
-                if (!targetRect) {
-                    return false;
-                }
-
-                editors[targetIndex].focusNearestPoint(
-                    sourceRect.left,
-                    getVerticalCenter(targetRect)
-                );
-
-                const targetSelection = editors[targetIndex].getSelection();
-
-                if (!targetSelection) {
-                    return false;
-                }
-
-                notebookSelection.focus = {
-                    noteIndex: targetIndex,
-                    offset: targetSelection.start
-                };
-            }
-
-            updateNotebookSelectionDecorations();
-            return true;
-        }
-
-        function ensureNotebookSelection(index, offset) {
-            if (notebookSelection) {
-                return;
-            }
-
-            notebookSelection = {
-                anchor: { noteIndex: index, offset },
-                focus: { noteIndex: index, offset }
-            };
-        }
-
-        function movePointLeft(point) {
-            if (point.offset > 0) {
-                return {
-                    noteIndex: point.noteIndex,
-                    offset: point.offset - 1
-                };
-            }
-
-            if (point.noteIndex === 0) {
-                return point;
-            }
-
-            const previousIndex = point.noteIndex - 1;
-
-            return {
-                noteIndex: previousIndex,
-                offset: notes[previousIndex].text.length
-            };
-        }
-
-        function movePointRight(point) {
-            const noteLength = notes[point.noteIndex].text.length;
-
-            if (point.offset < noteLength) {
-                return {
-                    noteIndex: point.noteIndex,
-                    offset: point.offset + 1
-                };
-            }
-
-            if (point.noteIndex >= notes.length - 1) {
-                return point;
-            }
-
-            return {
-                noteIndex: point.noteIndex + 1,
-                offset: 0
-            };
-        }
-
         function deleteNotebookSelection() {
-            if (!notebookSelection) {
+            const ordered = notebook.getOrderedSelection();
+
+            if (!ordered) {
                 return;
             }
 
-            const ordered = getOrderedNotebookSelection();
             const start = ordered.start;
             const end = ordered.end;
 
-            notebookSelection = null;
-
-            if (compareNotebookPoints(start, end) === 0) {
-                renderNotebook(start.noteIndex, start.offset);
-                return;
-            }
+            notebook.clearSelection();
 
             if (start.noteIndex === end.noteIndex) {
                 deleteRange(
@@ -468,76 +302,6 @@
             );
 
             renderNotebook(start.noteIndex, start.offset);
-        }
-
-        function clearNotebookSelection() {
-            if (!notebookSelection) {
-                return;
-            }
-
-            notebookSelection = null;
-
-            for (const editor of editors) {
-                editor.clearSelectionRanges();
-            }
-        }
-
-        function updateNotebookSelectionDecorations() {
-            for (let i = 0; i < editors.length; i++) {
-                const range = getSelectedRangeForNote(i);
-
-                if (range) {
-                    editors[i].showSelectionRanges([range]);
-                } else {
-                    editors[i].clearSelectionRanges();
-                }
-            }
-        }
-
-        function getSelectedRangeForNote(index) {
-            if (!notebookSelection) {
-                return null;
-            }
-
-            const ordered = getOrderedNotebookSelection();
-
-            if (index < ordered.start.noteIndex || index > ordered.end.noteIndex) {
-                return null;
-            }
-
-            const start = index === ordered.start.noteIndex
-                ? ordered.start.offset
-                : 0;
-            const end = index === ordered.end.noteIndex
-                ? ordered.end.offset
-                : notes[index].text.length;
-
-            return end > start
-                ? { start, end }
-                : null;
-        }
-
-        function getOrderedNotebookSelection() {
-            const { anchor, focus } = notebookSelection;
-
-            if (compareNotebookPoints(anchor, focus) <= 0) {
-                return { start: anchor, end: focus };
-            }
-
-            return { start: focus, end: anchor };
-        }
-
-        function compareNotebookPoints(a, b) {
-            if (a.noteIndex !== b.noteIndex) {
-                return a.noteIndex - b.noteIndex;
-            }
-
-            return a.offset - b.offset;
-        }
-
-
-        function getVerticalCenter(rect) {
-            return rect.top + rect.height / 2;
         }
 
         function splitNote(index, offset) {
