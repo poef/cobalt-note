@@ -157,6 +157,20 @@ export function getCaretClientRect(
     root: HTMLElement,
     offset: number
 ): DOMRect | null {
+    const textLength = getTextLength(root);
+
+    if (offset === textLength) {
+        const sentinel = getSentinelTextNode(root);
+
+        if (sentinel) {
+            const sentinelRect = getTextNodeCaretRect(sentinel, 0);
+
+            if (sentinelRect) {
+                return sentinelRect;
+            }
+        }
+    }
+
     const position = getDomPosition(root, offset);
     const range = document.createRange();
 
@@ -274,6 +288,34 @@ function getNearestBoundaryOffset(
     }
 
     return getTextLength(root);
+}
+
+
+function getTextNodeCaretRect(
+    node: Text,
+    offset: number
+): DOMRect | null {
+    const range = document.createRange();
+
+    range.setStart(node, offset);
+    range.collapse(true);
+
+    const rect = firstRect(range);
+
+    if (rect) {
+        return rect;
+    }
+
+    return node.parentElement?.getBoundingClientRect() ?? null;
+}
+
+function getSentinelTextNode(root: HTMLElement): Text | null {
+    const sentinel = root.querySelector('[data-cobalt-sentinel="true"]');
+    const node = sentinel?.firstChild;
+
+    return node?.nodeType === Node.TEXT_NODE
+        ? node as Text
+        : null;
 }
 
 function firstRect(range: Range): DOMRect | null {
