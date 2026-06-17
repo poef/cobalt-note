@@ -153,21 +153,38 @@ export class NotebookController {
     moveUp(index: number): boolean {
         const source = this.adapters[index];
 
-        if (!source || index === 0 || !source.isCaretOnFirstVisualLine()) {
+        if (!source) {
             return false;
         }
 
         const sourceRect = source.getCaretClientRect();
+
+        if (!sourceRect) {
+            return false;
+        }
+
+        const x = this.getDesiredVerticalX(sourceRect);
+
+        if (!source.isCaretOnFirstVisualLine()) {
+            source.focusNearestPoint(
+                x,
+                getVerticalCenter(sourceRect) - getVerticalStep(sourceRect)
+            );
+            return true;
+        }
+
+        if (index === 0) {
+            return false;
+        }
+
         const targetIndex = index - 1;
         const targetRect = this.adapters[targetIndex]?.getCaretClientRect(
             this.getNoteLength(targetIndex)
         );
 
-        if (!sourceRect || !targetRect) {
+        if (!targetRect) {
             return false;
         }
-
-        const x = this.getDesiredVerticalX(sourceRect);
 
         this.adapters[targetIndex]?.focusNearestPoint(
             x,
@@ -180,19 +197,36 @@ export class NotebookController {
     moveDown(index: number): boolean {
         const source = this.adapters[index];
 
-        if (!source || index >= this.adapters.length - 1 || !source.isCaretOnLastVisualLine()) {
+        if (!source) {
             return false;
         }
 
         const sourceRect = source.getCaretClientRect();
-        const targetIndex = index + 1;
-        const targetRect = this.adapters[targetIndex]?.getCaretClientRect(0);
 
-        if (!sourceRect || !targetRect) {
+        if (!sourceRect) {
             return false;
         }
 
         const x = this.getDesiredVerticalX(sourceRect);
+
+        if (!source.isCaretOnLastVisualLine()) {
+            source.focusNearestPoint(
+                x,
+                getVerticalCenter(sourceRect) + getVerticalStep(sourceRect)
+            );
+            return true;
+        }
+
+        if (index >= this.adapters.length - 1) {
+            return false;
+        }
+
+        const targetIndex = index + 1;
+        const targetRect = this.adapters[targetIndex]?.getCaretClientRect(0);
+
+        if (!targetRect) {
+            return false;
+        }
 
         this.adapters[targetIndex]?.focusNearestPoint(
             x,
@@ -425,6 +459,10 @@ export function getSelectedRangeForNote(
 
 function getVerticalCenter(rect: DOMRect): number {
     return rect.top + rect.height / 2;
+}
+
+function getVerticalStep(rect: DOMRect): number {
+    return Math.max(rect.height, 16);
 }
 
 function cloneSelection(selection: NotebookSelection): NotebookSelection {
