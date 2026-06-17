@@ -116,11 +116,44 @@ export function isOffsetOnLastVisualLine(root, offset, textLength, tolerance = 3
     return current.bottom >= last.bottom - tolerance;
 }
 export function getOffsetAtPoint(root, x, y) {
+    const nearestOffset = getNearestCaretOffset(root, x, y);
+    if (nearestOffset !== null) {
+        return nearestOffset;
+    }
     const position = getDomPositionFromPoint(x, y);
     if (!position || !root.contains(position.node)) {
         return getNearestBoundaryOffset(root, y);
     }
     return getOffset(root, position.node, position.offset);
+}
+function getNearestCaretOffset(root, x, y) {
+    const textLength = getTextLength(root);
+    let best = null;
+    for (let offset = 0; offset <= textLength; offset++) {
+        const rect = getCaretClientRect(root, offset);
+        if (!rect) {
+            continue;
+        }
+        const verticalDistance = getVerticalDistanceToRect(y, rect);
+        const horizontalDistance = Math.abs(x - rect.left);
+        if (!best ||
+            verticalDistance < best.verticalDistance ||
+            (verticalDistance === best.verticalDistance &&
+                horizontalDistance < best.horizontalDistance)) {
+            best = {
+                offset,
+                verticalDistance,
+                horizontalDistance
+            };
+        }
+    }
+    return best?.offset ?? null;
+}
+function getVerticalDistanceToRect(y, rect) {
+    if (y >= rect.top && y <= rect.bottom) {
+        return 0;
+    }
+    return Math.min(Math.abs(y - rect.top), Math.abs(y - rect.bottom));
 }
 function getDomPositionFromPoint(x, y) {
     const doc = document;

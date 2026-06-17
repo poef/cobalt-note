@@ -234,6 +234,12 @@ export function getOffsetAtPoint(
     x: number,
     y: number
 ): number {
+    const nearestOffset = getNearestCaretOffset(root, x, y);
+
+    if (nearestOffset !== null) {
+        return nearestOffset;
+    }
+
     const position = getDomPositionFromPoint(x, y);
 
     if (!position || !root.contains(position.node)) {
@@ -241,6 +247,62 @@ export function getOffsetAtPoint(
     }
 
     return getOffset(root, position.node, position.offset);
+}
+
+
+function getNearestCaretOffset(
+    root: HTMLElement,
+    x: number,
+    y: number
+): number | null {
+    const textLength = getTextLength(root);
+    let best: {
+        offset: number;
+        verticalDistance: number;
+        horizontalDistance: number;
+    } | null = null;
+
+    for (let offset = 0; offset <= textLength; offset++) {
+        const rect = getCaretClientRect(root, offset);
+
+        if (!rect) {
+            continue;
+        }
+
+        const verticalDistance = getVerticalDistanceToRect(y, rect);
+        const horizontalDistance = Math.abs(x - rect.left);
+
+        if (
+            !best ||
+            verticalDistance < best.verticalDistance ||
+            (
+                verticalDistance === best.verticalDistance &&
+                horizontalDistance < best.horizontalDistance
+            )
+        ) {
+            best = {
+                offset,
+                verticalDistance,
+                horizontalDistance
+            };
+        }
+    }
+
+    return best?.offset ?? null;
+}
+
+function getVerticalDistanceToRect(
+    y: number,
+    rect: DOMRect
+): number {
+    if (y >= rect.top && y <= rect.bottom) {
+        return 0;
+    }
+
+    return Math.min(
+        Math.abs(y - rect.top),
+        Math.abs(y - rect.bottom)
+    );
 }
 
 function getDomPositionFromPoint(
