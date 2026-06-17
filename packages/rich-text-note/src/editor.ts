@@ -1,6 +1,16 @@
 import { applyCommands, Command, AddAnnotationCommand, DeleteRangeCommand, InsertFragmentCommand, InsertTextCommand } from "./commands.js";
 import { createEditorState, EditorState, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
-import { Annotation, Fragment } from "./fragment.js";
+import {
+    Annotation,
+    Fragment,
+    addAnnotation as addFragmentAnnotation,
+    deleteRange as deleteFragmentRange,
+    insertFragment as insertRichTextFragment,
+    insertText as insertFragmentText,
+    joinFragments,
+    sliceFragment as sliceRichTextFragment,
+    splitFragment as splitRichTextFragment
+} from "./fragment.js";
 import { getClipboardFragment, readFragmentFromClipboard, writeFragmentToClipboard } from "./clipboard.js";
 import { AnnotationDefinition, createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from "./registry.js";
 import { render } from "./render.js";
@@ -16,10 +26,26 @@ import {
     setSelectionRange
 } from "@cobalt/note-core";
 
+export const RICH_TEXT_NOTE_FRAGMENT_TYPE = "cobalt.rich-text";
+
+export interface RichTextNotebookFragment {
+    type: typeof RICH_TEXT_NOTE_FRAGMENT_TYPE;
+    data: Fragment;
+}
+
+export interface RichTextNotebookMergeResult {
+    fragment: RichTextNotebookFragment;
+    joinOffset: number;
+}
+
 export interface Editor {
     element: HTMLElement;
     fragment: Fragment;
     state: EditorState;
+    getType(): typeof RICH_TEXT_NOTE_FRAGMENT_TYPE;
+    getValue(): Fragment;
+    setValue(value: unknown): void;
+    getLength(): number;
     focus(start?: number, end?: number): void;
     getSelection(): ReturnType<typeof getSelectionRange>;
     getCaretClientRect(offset?: number): DOMRect | null;
@@ -32,7 +58,63 @@ export interface Editor {
     getClientRect(): DOMRect;
     showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[], active?: boolean): void;
     clearSelectionRanges(): void;
+    deleteRange(start: number, end: number): void;
+    insertText(offset: number, text: string): void;
+    sliceFragment(start: number, end: number): RichTextNotebookFragment;
+    canInsertFragment(fragment: { type: string; data: unknown }): boolean;
+    insertFragment(offset: number, fragment: { type: string; data: unknown }): number;
+    splitFragment(offset: number): {
+        before: RichTextNotebookFragment;
+        after: RichTextNotebookFragment;
+    };
+    canMergeFragment(fragment: { type: string; data: unknown }, direction: "before" | "after"): boolean;
+    mergeFragment(fragment: { type: string; data: unknown }, direction: "before" | "after"): RichTextNotebookMergeResult | null;
+    canApplyAnnotation(name: string): boolean;
+    applyAnnotation(start: number, end: number, name: string, value?: unknown): void;
     destroy(): void;
+}
+
+function cloneFragment(fragment: Fragment): Fragment {
+    return {
+        text: fragment.text,
+        annotations: fragment.annotations.map(annotation => ({
+            ...annotation,
+            range: [...annotation.range]
+        }))
+    };
+}
+
+function replaceFragment(target: Fragment, source: Fragment): void {
+    target.text = source.text;
+    target.annotations = source.annotations.map(annotation => ({
+        ...annotation,
+        range: [...annotation.range]
+    }));
+}
+
+function wrapRichTextFragment(fragment: Fragment): RichTextNotebookFragment {
+    return {
+        type: RICH_TEXT_NOTE_FRAGMENT_TYPE,
+        data: cloneFragment(fragment)
+    };
+}
+
+function isFragment(value: unknown): value is Fragment {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const fragment = value as Partial<Fragment>;
+
+    return typeof fragment.text === "string" &&
+        Array.isArray(fragment.annotations);
+}
+
+function isRichTextNotebookFragment(
+    fragment: { type: string; data: unknown }
+): fragment is RichTextNotebookFragment {
+    return fragment.type === RICH_TEXT_NOTE_FRAGMENT_TYPE &&
+        isFragment(fragment.data);
 }
 
 function renderDecoratedFragment(
@@ -100,6 +182,24 @@ export function edit(
         element,
         fragment,
         state,
+        getType(): typeof RICH_TEXT_NOTE_FRAGMENT_TYPE {
+            return RICH_TEXT_NOTE_FRAGMENT_TYPE;
+        },
+        getValue(): Fragment {
+            return cloneFragment(fragment);
+        },
+        setValue(value: unknown): void {
+            if (!isFragment(value)) {
+                throw new Error("Expected a rich-text fragment value.");
+            }
+
+            replaceFragment(fragment, value);
+            const selection = getSelectionRange(element);
+            rerender(selection?.start, selection?.end);
+        },
+        getLength(): number {
+            return fragment.text.length;
+        },
         focus(start = 0, end = start): void {
             element.focus();
             setSelectionRange(element, start, end);
@@ -176,6 +276,77 @@ export function edit(
             selectionDecorationRanges = [];
             const selection = getSelectionRange(element);
             rerender(selection?.start, selection?.end);
+        },
+        deleteRange(start: number, end: number): void {
+            deleteFragmentRange(fragment, start, end);
+            rerender(start, start);
+        },
+        insertText(offset: number, text: string): void {
+            insertFragmentText(fragment, offset, text);
+            const caret = Math.min(fragment.text.length, Math.max(0, offset) + text.length);
+            rerender(caret, caret);
+        },
+        sliceFragment(start: number, end: number): RichTextNotebookFragment {
+            return wrapRichTextFragment(
+                sliceRichTextFragment(fragment, start, end)
+            );
+        },
+        canInsertFragment(notebookFragment: { type: string; data: unknown }): boolean {
+            return isRichTextNotebookFragment(notebookFragment);
+        },
+        insertFragment(offset: number, notebookFragment: { type: string; data: unknown }): number {
+            if (!isRichTextNotebookFragment(notebookFragment)) {
+                return offset;
+            }
+
+            const inserted = notebookFragment.data;
+            insertRichTextFragment(fragment, offset, inserted);
+            const caret = Math.min(fragment.text.length, Math.max(0, offset) + inserted.text.length);
+            rerender(caret, caret);
+            return caret;
+        },
+        splitFragment(offset: number): {
+            before: RichTextNotebookFragment;
+            after: RichTextNotebookFragment;
+        } {
+            const result = splitRichTextFragment(fragment, offset);
+
+            return {
+                before: wrapRichTextFragment(result.before),
+                after: wrapRichTextFragment(result.after)
+            };
+        },
+        canMergeFragment(notebookFragment: { type: string; data: unknown }, _direction: "before" | "after"): boolean {
+            return isRichTextNotebookFragment(notebookFragment);
+        },
+        mergeFragment(notebookFragment: { type: string; data: unknown }, direction: "before" | "after"): RichTextNotebookMergeResult | null {
+            if (!isRichTextNotebookFragment(notebookFragment)) {
+                return null;
+            }
+
+            const result = direction === "after"
+                ? joinFragments(fragment, notebookFragment.data)
+                : joinFragments(notebookFragment.data, fragment);
+
+            return {
+                fragment: wrapRichTextFragment(result.fragment),
+                joinOffset: result.joinOffset
+            };
+        },
+        canApplyAnnotation(name: string): boolean {
+            return name !== "__selection" && defaultRegistry.get(name) !== undefined;
+        },
+        applyAnnotation(start: number, end: number, name: string, value?: unknown): void {
+            if (end <= start || !this.canApplyAnnotation(name)) {
+                return;
+            }
+
+            const tag = name === "link" && typeof value === "string"
+                ? createLinkAnnotationTag(value)
+                : createAnnotationTag(name, true);
+
+            addFragmentAnnotation(fragment, [start, end], tag);
+            rerender(start, end);
         },
         destroy(): void {
             element.removeEventListener("keydown", handleKeyDown);

@@ -2,8 +2,8 @@ export type { Annotation, Fragment, SplitFragmentResult, JoinFragmentsResult, Co
 export { addAnnotation, deleteRange, getNextOrder, insertFragment, insertText, joinFragments, concatFragments, sliceFragment, splitFragment } from "./fragment.js";
 export { AddAnnotationCommand, applyCommand, applyCommands, DeleteRangeCommand, InsertFragmentCommand, InsertTextCommand } from "./commands.js";
 export type { Command } from "./commands.js";
-export { edit } from "./editor.js";
-export type { Editor } from "./editor.js";
+export { edit, RICH_TEXT_NOTE_FRAGMENT_TYPE } from "./editor.js";
+export type { Editor, RichTextNotebookFragment, RichTextNotebookMergeResult } from "./editor.js";
 export { render } from "./render.js";
 export { generateRuns, getEffectiveState, getTypingEffectiveState } from "./runs.js";
 export type { ActiveAnnotation, EffectiveState, Run } from "./runs.js";

@@ -29,8 +29,15 @@ export {
 
 export type { Command } from "./commands.js";
 
-export { edit } from "./editor.js";
-export type { Editor } from "./editor.js";
+export {
+    edit,
+    RICH_TEXT_NOTE_FRAGMENT_TYPE
+} from "./editor.js";
+export type {
+    Editor,
+    RichTextNotebookFragment,
+    RichTextNotebookMergeResult
+} from "./editor.js";
 
 export { render } from "./render.js";
 

@@ -14,7 +14,22 @@ export interface LocalSelectionRange {
     start: number;
     end: number;
 }
+export interface NotebookNoteFragment {
+    /**
+     * Opaque content type owned by the note implementation.
+     * Notebook may compare this value, but must not inspect data.
+     */
+    type: string;
+    data: unknown;
+}
+export interface NotebookNoteMergeResult {
+    fragment: NotebookNoteFragment;
+    joinOffset: number;
+}
 export interface NotebookNoteAdapter {
+    getType(): string;
+    getValue(): unknown;
+    setValue(value: unknown): void;
     getLength(): number;
     focus(start: number, end?: number): void;
     getSelection(): LocalSelectionRange | null;
@@ -28,6 +43,19 @@ export interface NotebookNoteAdapter {
     getClientRect(): DOMRect;
     showSelectionRanges(ranges: LocalSelectionRange[], active?: boolean): void;
     clearSelectionRanges(): void;
+    deleteRange(start: number, end: number): void;
+    insertText(offset: number, text: string): void;
+    sliceFragment(start: number, end: number): NotebookNoteFragment;
+    canInsertFragment(fragment: NotebookNoteFragment): boolean;
+    insertFragment(offset: number, fragment: NotebookNoteFragment): number;
+    splitFragment(offset: number): {
+        before: NotebookNoteFragment;
+        after: NotebookNoteFragment;
+    };
+    canMergeFragment(fragment: NotebookNoteFragment, direction: "before" | "after"): boolean;
+    mergeFragment(fragment: NotebookNoteFragment, direction: "before" | "after"): NotebookNoteMergeResult | null;
+    canApplyAnnotation?(name: string): boolean;
+    applyAnnotation?(start: number, end: number, name: string, value?: unknown): void;
 }
 export declare class NotebookController {
     private adapters;

@@ -1,10 +1,46 @@
 import { applyCommands, AddAnnotationCommand, DeleteRangeCommand, InsertFragmentCommand, InsertTextCommand } from "./commands.js";
 import { createEditorState, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
+import { addAnnotation as addFragmentAnnotation, deleteRange as deleteFragmentRange, insertFragment as insertRichTextFragment, insertText as insertFragmentText, joinFragments, sliceFragment as sliceRichTextFragment, splitFragment as splitRichTextFragment } from "./fragment.js";
 import { getClipboardFragment, readFragmentFromClipboard, writeFragmentToClipboard } from "./clipboard.js";
 import { createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
 import { getCaretClientRect, getOffsetAtPoint, getParagraphRangeAtPoint, getSelectionRange, getWordRangeAtPoint, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "@cobalt/note-core";
+export const RICH_TEXT_NOTE_FRAGMENT_TYPE = "cobalt.rich-text";
+function cloneFragment(fragment) {
+    return {
+        text: fragment.text,
+        annotations: fragment.annotations.map(annotation => ({
+            ...annotation,
+            range: [...annotation.range]
+        }))
+    };
+}
+function replaceFragment(target, source) {
+    target.text = source.text;
+    target.annotations = source.annotations.map(annotation => ({
+        ...annotation,
+        range: [...annotation.range]
+    }));
+}
+function wrapRichTextFragment(fragment) {
+    return {
+        type: RICH_TEXT_NOTE_FRAGMENT_TYPE,
+        data: cloneFragment(fragment)
+    };
+}
+function isFragment(value) {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+    const fragment = value;
+    return typeof fragment.text === "string" &&
+        Array.isArray(fragment.annotations);
+}
+function isRichTextNotebookFragment(fragment) {
+    return fragment.type === RICH_TEXT_NOTE_FRAGMENT_TYPE &&
+        isFragment(fragment.data);
+}
 function renderDecoratedFragment(fragment, ranges, active = true) {
     if (ranges.length === 0) {
         return render(fragment);
@@ -42,6 +78,23 @@ export function edit(element, fragment) {
         element,
         fragment,
         state,
+        getType() {
+            return RICH_TEXT_NOTE_FRAGMENT_TYPE;
+        },
+        getValue() {
+            return cloneFragment(fragment);
+        },
+        setValue(value) {
+            if (!isFragment(value)) {
+                throw new Error("Expected a rich-text fragment value.");
+            }
+            replaceFragment(fragment, value);
+            const selection = getSelectionRange(element);
+            rerender(selection?.start, selection?.end);
+        },
+        getLength() {
+            return fragment.text.length;
+        },
         focus(start = 0, end = start) {
             element.focus();
             setSelectionRange(element, start, end);
@@ -102,6 +155,66 @@ export function edit(element, fragment) {
             selectionDecorationRanges = [];
             const selection = getSelectionRange(element);
             rerender(selection?.start, selection?.end);
+        },
+        deleteRange(start, end) {
+            deleteFragmentRange(fragment, start, end);
+            rerender(start, start);
+        },
+        insertText(offset, text) {
+            insertFragmentText(fragment, offset, text);
+            const caret = Math.min(fragment.text.length, Math.max(0, offset) + text.length);
+            rerender(caret, caret);
+        },
+        sliceFragment(start, end) {
+            return wrapRichTextFragment(sliceRichTextFragment(fragment, start, end));
+        },
+        canInsertFragment(notebookFragment) {
+            return isRichTextNotebookFragment(notebookFragment);
+        },
+        insertFragment(offset, notebookFragment) {
+            if (!isRichTextNotebookFragment(notebookFragment)) {
+                return offset;
+            }
+            const inserted = notebookFragment.data;
+            insertRichTextFragment(fragment, offset, inserted);
+            const caret = Math.min(fragment.text.length, Math.max(0, offset) + inserted.text.length);
+            rerender(caret, caret);
+            return caret;
+        },
+        splitFragment(offset) {
+            const result = splitRichTextFragment(fragment, offset);
+            return {
+                before: wrapRichTextFragment(result.before),
+                after: wrapRichTextFragment(result.after)
+            };
+        },
+        canMergeFragment(notebookFragment, _direction) {
+            return isRichTextNotebookFragment(notebookFragment);
+        },
+        mergeFragment(notebookFragment, direction) {
+            if (!isRichTextNotebookFragment(notebookFragment)) {
+                return null;
+            }
+            const result = direction === "after"
+                ? joinFragments(fragment, notebookFragment.data)
+                : joinFragments(notebookFragment.data, fragment);
+            return {
+                fragment: wrapRichTextFragment(result.fragment),
+                joinOffset: result.joinOffset
+            };
+        },
+        canApplyAnnotation(name) {
+            return name !== "__selection" && defaultRegistry.get(name) !== undefined;
+        },
+        applyAnnotation(start, end, name, value) {
+            if (end <= start || !this.canApplyAnnotation(name)) {
+                return;
+            }
+            const tag = name === "link" && typeof value === "string"
+                ? createLinkAnnotationTag(value)
+                : createAnnotationTag(name, true);
+            addFragmentAnnotation(fragment, [start, end], tag);
+            rerender(start, end);
         },
         destroy() {
             element.removeEventListener("keydown", handleKeyDown);

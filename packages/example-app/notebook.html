@@ -172,21 +172,7 @@
                 });
             });
 
-            notebook.setAdapters(editors.map((editor, index) => ({
-                getLength: () => notes[index].text.length,
-                focus: (start, end = start) => editor.focus(start, end),
-                getSelection: () => editor.getSelection(),
-                getCaretClientRect: offset => editor.getCaretClientRect(offset),
-                isCaretOnFirstVisualLine: () => editor.isCaretOnFirstVisualLine(),
-                isCaretOnLastVisualLine: () => editor.isCaretOnLastVisualLine(),
-                focusNearestPoint: (x, y) => editor.focusNearestPoint(x, y),
-                getOffsetAtPoint: (x, y) => editor.getOffsetAtPoint(x, y),
-                getWordRangeAtPoint: (x, y) => editor.getWordRangeAtPoint(x, y),
-                getParagraphRangeAtPoint: (x, y) => editor.getParagraphRangeAtPoint(x, y),
-                getClientRect: () => editor.getClientRect(),
-                showSelectionRanges: (ranges, active) => editor.showSelectionRanges(ranges, active),
-                clearSelectionRanges: () => editor.clearSelectionRanges()
-            })));
+            notebook.setAdapters(editors);
 
             if (focusIndex !== null) {
                 requestAnimationFrame(() => {
@@ -801,13 +787,13 @@
         }
 
         function splitNote(index, offset) {
-            const result = splitFragment(notes[index], offset);
+            const result = editors[index].splitFragment(offset);
 
             notes.splice(
                 index,
                 1,
-                result.before,
-                result.after
+                result.before.data,
+                result.after.data
             );
 
             renderNotebook(index + 1, 0);
@@ -818,15 +804,24 @@
                 return;
             }
 
-            const result = joinFragments(
-                notes[index - 1],
-                notes[index]
-            );
+            const target = editors[index - 1];
+            const source = editors[index];
+            const sourceFragment = source.sliceFragment(0, source.getLength());
+
+            if (!target.canMergeFragment(sourceFragment, "after")) {
+                return;
+            }
+
+            const result = target.mergeFragment(sourceFragment, "after");
+
+            if (!result) {
+                return;
+            }
 
             notes.splice(
                 index - 1,
                 2,
-                result.fragment
+                result.fragment.data
             );
 
             renderNotebook(
@@ -840,16 +835,25 @@
                 return;
             }
 
-            const caretOffset = notes[index].text.length;
-            const result = joinFragments(
-                notes[index],
-                notes[index + 1]
-            );
+            const target = editors[index];
+            const source = editors[index + 1];
+            const caretOffset = target.getLength();
+            const sourceFragment = source.sliceFragment(0, source.getLength());
+
+            if (!target.canMergeFragment(sourceFragment, "after")) {
+                return;
+            }
+
+            const result = target.mergeFragment(sourceFragment, "after");
+
+            if (!result) {
+                return;
+            }
 
             notes.splice(
                 index,
                 2,
-                result.fragment
+                result.fragment.data
             );
 
             renderNotebook(
