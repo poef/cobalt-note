@@ -27,9 +27,27 @@
             white-space: pre-wrap;
         }
 
-        .note:focus {
+        .note:focus,
+        .cobalt-code-note:focus {
             border-color: #555;
             box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .cobalt-code-note {
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 2.8em;
+            resize: none;
+            overflow: hidden;
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+            outline: none;
+            padding: 10px 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            background: #f6f8fa;
+            color: #24292f;
         }
 
         [data-cobalt-selection="true"][data-cobalt-selection-active="true"] {
@@ -77,43 +95,54 @@
       "imports": {
         "@cobalt/note-core": "../note-core/dist/index.js",
         "@cobalt/rich-text-note": "../rich-text-note/dist/index.js",
-        "@cobalt/notebook": "../notebook/dist/index.js"
+        "@cobalt/notebook": "../notebook/dist/index.js",
+        "@cobalt/code-note": "../code-note/dist/index.js"
       }
     }
     </script>
     <script type="module">
         import {
-            concatFragments,
             defaultRegistry,
-            deleteRange,
             edit,
-            insertFragment,
             insertText,
-            joinFragments,
             readFragmentsFromClipboard,
             RICH_TEXT_NOTE_FRAGMENT_TYPE,
-            sliceFragment,
-            splitFragment,
             writeFragmentsToClipboard
         } from "../rich-text-note/dist/index.js";
+        import {
+            CODE_NOTE_FRAGMENT_TYPE,
+            editCodeNote
+        } from "../code-note/dist/index.js";
         import {
             NotebookController
         } from "../notebook/dist/index.js";
 
         const notes = [
             {
-                text: "This is the first note. Try pressing Ctrl+Enter in the middle.",
-                annotations: [
-                    {
-                        range: [12, 22],
-                        tag: "<strong>",
-                        order: 1
-                    }
-                ]
+                type: RICH_TEXT_NOTE_FRAGMENT_TYPE,
+                data: {
+                    text: "This is the first note. Try pressing Ctrl+Enter in the middle.",
+                    annotations: [
+                        {
+                            range: [12, 22],
+                            tag: "<strong>",
+                            order: 1
+                        }
+                    ]
+                }
             },
             {
-                text: "This is another note.",
-                annotations: []
+                type: CODE_NOTE_FRAGMENT_TYPE,
+                data: {
+                    text: "function hello() {\n    return 42;\n}"
+                }
+            },
+            {
+                type: RICH_TEXT_NOTE_FRAGMENT_TYPE,
+                data: {
+                    text: "This is another rich text note.",
+                    annotations: []
+                }
             }
         ];
 
@@ -133,11 +162,10 @@
             notesElement.textContent = "";
 
             notes.forEach((fragment, index) => {
-                const element = document.createElement("div");
-                element.className = "note";
+                const element = createNoteElement(fragment);
                 notesElement.append(element);
 
-                const editor = edit(element, fragment);
+                const editor = createNoteEditor(element, fragment);
                 editors.push(editor);
 
                 element.addEventListener("keydown", event => {
@@ -423,7 +451,7 @@
                 return;
             }
 
-            if (event.key === "Delete" && selection.start === notes[index].text.length) {
+            if (event.key === "Delete" && selection.start === editor.getLength()) {
                 if (index >= notes.length - 1) {
                     return;
                 }
@@ -511,53 +539,17 @@
         }
 
         function removeNotebookSelection() {
-            const ordered = notebook.getOrderedSelection();
+            const result = notebook.deleteSelection();
 
-            if (!ordered) {
+            if (!result) {
                 return null;
             }
 
-            const start = ordered.start;
-            const end = ordered.end;
-
-            notebook.clearSelection();
-
-            if (start.noteIndex === end.noteIndex) {
-                deleteRange(
-                    notes[start.noteIndex],
-                    start.offset,
-                    end.offset
-                );
-
-                return {
-                    noteIndex: start.noteIndex,
-                    offset: start.offset
-                };
-            }
-
-            const prefix = sliceFragment(
-                notes[start.noteIndex],
-                0,
-                start.offset
-            );
-
-            const suffix = sliceFragment(
-                notes[end.noteIndex],
-                end.offset,
-                notes[end.noteIndex].text.length
-            );
-
-            const result = concatFragments(prefix, suffix);
-
-            notes.splice(
-                start.noteIndex,
-                end.noteIndex - start.noteIndex + 1,
-                result.fragment
-            );
+            applyNotebookReplacement(result.replacement);
 
             return {
-                noteIndex: start.noteIndex,
-                offset: start.offset
+                noteIndex: result.focus.noteIndex,
+                offset: result.focus.offset
             };
         }
 
@@ -720,11 +712,13 @@
                 return;
             }
 
-            insertText(
-                notes[position.noteIndex],
-                position.offset,
-                text
-            );
+            const target = editors[position.noteIndex];
+
+            if (!target) {
+                return;
+            }
+
+            target.insertText(position.offset, text);
 
             renderNotebook(
                 position.noteIndex,
@@ -738,8 +732,8 @@
             notes.splice(
                 index,
                 1,
-                result.before.data,
-                result.after.data
+                result.before,
+                result.after
             );
 
             renderNotebook(index + 1, 0);
@@ -779,10 +773,32 @@
             notes.splice(
                 spliceIndex,
                 deleteCount,
-                ...fragments.map(fragment => fragment.data)
+                ...fragments
             );
         }
 
+
+        function createNoteElement(fragment) {
+            if (fragment.type === CODE_NOTE_FRAGMENT_TYPE) {
+                return document.createElement("textarea");
+            }
+
+            const element = document.createElement("div");
+            element.className = "note";
+            return element;
+        }
+
+        function createNoteEditor(element, fragment) {
+            if (fragment.type === CODE_NOTE_FRAGMENT_TYPE) {
+                return editCodeNote(element, fragment.data);
+            }
+
+            if (fragment.type === RICH_TEXT_NOTE_FRAGMENT_TYPE) {
+                return edit(element, fragment.data);
+            }
+
+            throw new Error(`Unsupported note type: ${fragment.type}`);
+        }
 
         function isSelectableTarget(target) {
             if (!(target instanceof Element)) {

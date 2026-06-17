@@ -6,8 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/note-core packages/rich-text-note packages/notebook",
-    "check": "tsc -b --dry false packages/note-core packages/rich-text-note packages/notebook --verbose",
+    "build": "tsc -b packages/note-core packages/notebook packages/rich-text-note packages/code-note",
+    "check": "tsc -b --dry false packages/note-core packages/notebook packages/rich-text-note packages/code-note --verbose",
     "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo",
     "test": "npm run build && vitest run && node --test packages/notebook/test/*.test.mjs"
   },
