@@ -1,10 +1,10 @@
-import { createAnnotationTag } from "./registry.js";
+import { createAnnotationTag, defaultRegistry } from "./registry.js";
 export function createEditorState() {
     return {
         pending: {}
     };
 }
-export function buildPendingAnnotations(state, start, end) {
+export function buildPendingAnnotations(state, start, end, registry = defaultRegistry) {
     const result = [];
     for (const name of Object.keys(state.pending)) {
         const enabled = state.pending[name];
@@ -14,7 +14,7 @@ export function buildPendingAnnotations(state, start, end) {
         result.push({
             start,
             end,
-            tag: createAnnotationTag(name, enabled)
+            tag: createAnnotationTag(name, enabled, registry)
         });
     }
     return result;

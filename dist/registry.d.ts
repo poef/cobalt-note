@@ -6,6 +6,8 @@ export interface AnnotationDefinition {
     /** Lower values render farther outside in the generated HTML. */
     priority?: number;
     shortcut?: string;
+    /** If true, collapsed shortcut toggles create a one-shot pending annotation for the next input. */
+    supportsPending?: boolean;
 }
 export interface ParsedAnnotationTag {
     name: string;
@@ -19,6 +21,7 @@ export declare class AnnotationRegistry {
     register(definition: AnnotationDefinition): void;
     get(name: string): AnnotationDefinition | undefined;
     getAll(): AnnotationDefinition[];
+    findByShortcut(event: KeyboardEvent): AnnotationDefinition | undefined;
     findByTag(tag: string): ParsedAnnotationTag | null;
 }
 export declare const defaultRegistry: AnnotationRegistry;

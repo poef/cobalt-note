@@ -1,4 +1,4 @@
-export type ToggleAnnotationName = "strong" | "em" | "underline";
+import { AnnotationRegistry } from "./registry.js";
 /**
  * Pending annotation values are one-shot overrides for the next inserted text.
  *
@@ -6,7 +6,7 @@ export type ToggleAnnotationName = "strong" | "em" | "underline";
  * true      = make the next inserted text have this annotation
  * false     = make the next inserted text not have this annotation
  */
-export type PendingAnnotations = Partial<Record<ToggleAnnotationName, boolean>>;
+export type PendingAnnotations = Record<string, boolean | undefined>;
 export interface EditorState {
     pending: PendingAnnotations;
 }
@@ -16,5 +16,5 @@ export interface PendingAnnotationRange {
     tag: string;
 }
 export declare function createEditorState(): EditorState;
-export declare function buildPendingAnnotations(state: EditorState, start: number, end: number): PendingAnnotationRange[];
+export declare function buildPendingAnnotations(state: EditorState, start: number, end: number, registry?: AnnotationRegistry): PendingAnnotationRange[];
 export declare function clearPendingAnnotations(state: EditorState): void;

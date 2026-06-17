@@ -53,6 +53,8 @@ The example creates a single cobalt editor instance and shows the live fragment 
 
 Links are created with Ctrl+K on a non-empty selection. Ctrl+K prompts for a URL and appends an `<a href="...">` annotation for the selected range. Links are not part of pending annotation state for collapsed selections.
 
+Annotation definitions live in the registry. A definition may set `supportsPending: true` to allow collapsed-selection shortcuts to create a one-shot pending annotation for the next inserted text. The built-in `strong`, `em`, and `underline` annotations support pending state; `link` does not.
+
 ## Whitespace and line breaks
 
 Cobalt uses character offsets as its editor coordinate system. The editor host should preserve whitespace so visual caret movement matches the stored text:
@@ -93,28 +95,30 @@ element.addEventListener("keydown", event => {
 
 In the example notebook, Ctrl+Enter is handled by the notebook application. The parent splits the current fragment at the cursor offset, replaces the note with two notes, and focuses the new next note at offset 0. Normal Enter still inserts a newline inside the current note.
 
-Notebook applications can also join notes. When Backspace is pressed at offset 0, or Delete is pressed at the end of a note, the editor dispatches a cancelable `cobalt:joinrequest` custom event. The parent notebook may call `event.preventDefault()` to accept and handle the join, or ignore the event to refuse it.
+Notebook applications can also join notes. In the example notebook, Backspace at offset 0 joins with the previous note, and Delete at the end of a note joins with the next note. This is handled by the notebook application in the capture phase, not by the editor itself.
 
 ```ts
-import {
-    COBALT_JOIN_REQUEST_EVENT,
-    edit,
-    joinFragments
-} from "cobalt-note";
+import { edit, joinFragments } from "cobalt-note";
 
 const editor = edit(element, fragment);
 
-element.addEventListener(COBALT_JOIN_REQUEST_EVENT, event => {
-    if (event.detail.direction === "backward") {
+element.addEventListener("keydown", event => {
+    const selection = editor.getSelection();
+
+    if (!selection || selection.start !== selection.end) {
+        return;
+    }
+
+    if (event.key === "Backspace" && selection.start === 0) {
         event.preventDefault();
         // Join this note with the previous note in your notebook model.
     }
 
-    if (event.detail.direction === "forward") {
+    if (event.key === "Delete" && selection.start === fragment.text.length) {
         event.preventDefault();
         // Join this note with the next note in your notebook model.
     }
-});
+}, true);
 ```
 
-`joinFragments(first, second)` returns a joined fragment and the original end offset of `first`, which is the natural caret position after joining. It inserts one newline between fragments unless the boundary already contains one.
+`joinFragments(first, second)` returns a joined fragment and the original end offset of `first`, which is the natural caret position after joining. It inserts one newline between fragments unless the boundary already contains one. Adjacent annotations with the same `tag` and `order` are merged again after joining.

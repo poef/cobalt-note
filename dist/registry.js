@@ -9,6 +9,10 @@ export class AnnotationRegistry {
     getAll() {
         return Array.from(this.definitions.values());
     }
+    findByShortcut(event) {
+        const key = shortcutFromKeyboardEvent(event);
+        return this.getAll().find(definition => definition.shortcut?.toLowerCase() === key);
+    }
     findByTag(tag) {
         const trimmed = tag.trim();
         for (const definition of this.definitions.values()) {
@@ -37,25 +41,29 @@ defaultRegistry.register({
     name: "link",
     tag: "<a>",
     priority: 0,
-    shortcut: "Ctrl+K"
+    shortcut: "Ctrl+K",
+    supportsPending: false
 });
 defaultRegistry.register({
     name: "underline",
     tag: "<u>",
     priority: 10,
-    shortcut: "Ctrl+U"
+    shortcut: "Ctrl+U",
+    supportsPending: true
 });
 defaultRegistry.register({
     name: "em",
     tag: "<em>",
     priority: 20,
-    shortcut: "Ctrl+I"
+    shortcut: "Ctrl+I",
+    supportsPending: true
 });
 defaultRegistry.register({
     name: "strong",
     tag: "<strong>",
     priority: 30,
-    shortcut: "Ctrl+B"
+    shortcut: "Ctrl+B",
+    supportsPending: true
 });
 export function parseAnnotationTag(tag, registry = defaultRegistry) {
     const trimmed = tag.trim();
@@ -116,6 +124,23 @@ function isOpeningTag(tag, tagName) {
 }
 function isClosingTag(tag, tagName) {
     return new RegExp(`^</${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
+}
+function shortcutFromKeyboardEvent(event) {
+    const parts = [];
+    if (event.ctrlKey) {
+        parts.push("ctrl");
+    }
+    if (event.metaKey) {
+        parts.push("meta");
+    }
+    if (event.altKey) {
+        parts.push("alt");
+    }
+    if (event.shiftKey) {
+        parts.push("shift");
+    }
+    parts.push(event.key.toLowerCase());
+    return parts.join("+");
 }
 function escapeAttribute(value) {
     return value

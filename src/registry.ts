@@ -9,6 +9,9 @@ export interface AnnotationDefinition {
     priority?: number;
 
     shortcut?: string;
+
+    /** If true, collapsed shortcut toggles create a one-shot pending annotation for the next input. */
+    supportsPending?: boolean;
 }
 
 export interface ParsedAnnotationTag {
@@ -32,6 +35,14 @@ export class AnnotationRegistry {
 
     getAll(): AnnotationDefinition[] {
         return Array.from(this.definitions.values());
+    }
+
+    findByShortcut(event: KeyboardEvent): AnnotationDefinition | undefined {
+        const key = shortcutFromKeyboardEvent(event);
+
+        return this.getAll().find(definition =>
+            definition.shortcut?.toLowerCase() === key
+        );
     }
 
     findByTag(tag: string): ParsedAnnotationTag | null {
@@ -67,28 +78,32 @@ defaultRegistry.register({
     name: "link",
     tag: "<a>",
     priority: 0,
-    shortcut: "Ctrl+K"
+    shortcut: "Ctrl+K",
+    supportsPending: false
 });
 
 defaultRegistry.register({
     name: "underline",
     tag: "<u>",
     priority: 10,
-    shortcut: "Ctrl+U"
+    shortcut: "Ctrl+U",
+    supportsPending: true
 });
 
 defaultRegistry.register({
     name: "em",
     tag: "<em>",
     priority: 20,
-    shortcut: "Ctrl+I"
+    shortcut: "Ctrl+I",
+    supportsPending: true
 });
 
 defaultRegistry.register({
     name: "strong",
     tag: "<strong>",
     priority: 30,
-    shortcut: "Ctrl+B"
+    shortcut: "Ctrl+B",
+    supportsPending: true
 });
 
 export function parseAnnotationTag(
@@ -179,6 +194,31 @@ function isOpeningTag(tag: string, tagName: string): boolean {
 
 function isClosingTag(tag: string, tagName: string): boolean {
     return new RegExp(`^</${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
+}
+
+
+function shortcutFromKeyboardEvent(event: KeyboardEvent): string {
+    const parts: string[] = [];
+
+    if (event.ctrlKey) {
+        parts.push("ctrl");
+    }
+
+    if (event.metaKey) {
+        parts.push("meta");
+    }
+
+    if (event.altKey) {
+        parts.push("alt");
+    }
+
+    if (event.shiftKey) {
+        parts.push("shift");
+    }
+
+    parts.push(event.key.toLowerCase());
+
+    return parts.join("+");
 }
 
 function escapeAttribute(value: string): string {

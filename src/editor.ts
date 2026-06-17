@@ -1,7 +1,7 @@
 import { applyCommands, Command, AddAnnotationCommand, DeleteRangeCommand, InsertTextCommand } from "./commands.js";
-import { createEditorState, EditorState, ToggleAnnotationName, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
+import { createEditorState, EditorState, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
 import { Fragment } from "./fragment.js";
-import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
+import { AnnotationDefinition, createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
 import {
@@ -119,20 +119,20 @@ export function edit(
             return;
         }
 
-        if (event.key.toLowerCase() === "k") {
-            event.preventDefault();
-            addLink();
-            return;
-        }
+        const definition = defaultRegistry.findByShortcut(event);
 
-        const annotation = getShortcutAnnotation(event);
-
-        if (!annotation) {
+        if (!definition) {
             return;
         }
 
         event.preventDefault();
-        toggleAnnotation(annotation);
+
+        if (definition.name === "link") {
+            addLink();
+            return;
+        }
+
+        toggleAnnotation(definition);
     }
 
     function handleBeforeInput(event: Event): void {
@@ -167,7 +167,7 @@ export function edit(
     }
 
     function toggleAnnotation(
-        annotation: ToggleAnnotationName
+        definition: AnnotationDefinition
     ): void {
         const selection = getSelectionRange(element);
 
@@ -181,14 +181,18 @@ export function edit(
                 selection.start
             );
 
-            const inheritedEnabled = inheritedState[annotation] !== undefined;
-            const currentTypingEnabled = state.pending[annotation] ?? inheritedEnabled;
+            if (!definition.supportsPending) {
+                return;
+            }
+
+            const inheritedEnabled = inheritedState[definition.name] !== undefined;
+            const currentTypingEnabled = state.pending[definition.name] ?? inheritedEnabled;
             const nextTypingEnabled = !currentTypingEnabled;
 
             if (nextTypingEnabled === inheritedEnabled) {
-                delete state.pending[annotation];
+                delete state.pending[definition.name];
             } else {
-                state.pending[annotation] = nextTypingEnabled;
+                state.pending[definition.name] = nextTypingEnabled;
             }
 
             rerender(selection.start, selection.end);
@@ -201,8 +205,8 @@ export function edit(
         );
 
         const tag = createAnnotationTag(
-            annotation,
-            currentState[annotation] === undefined
+            definition.name,
+            currentState[definition.name] === undefined
         );
 
         applyCommands(fragment, [
@@ -475,20 +479,3 @@ export function edit(
     return editor;
 }
 
-function getShortcutAnnotation(
-    event: KeyboardEvent
-): ToggleAnnotationName | null {
-    switch (event.key.toLowerCase()) {
-        case "b":
-            return "strong";
-
-        case "i":
-            return "em";
-
-        case "u":
-            return "underline";
-
-        default:
-            return null;
-    }
-}

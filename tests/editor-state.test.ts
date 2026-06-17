@@ -3,6 +3,7 @@ import {
     clearPendingAnnotations,
     createEditorState
 } from "../src/editor-state.js";
+import { AnnotationRegistry } from "../src/registry.js";
 
 describe("editor pending annotation state", () => {
     test("pending annotations build one-shot enable and disable annotation ranges", () => {
@@ -26,4 +27,21 @@ describe("editor pending annotation state", () => {
 
         expect(state.pending).toEqual({});
     });
+});
+
+test("pending annotations use registry definitions generically", () => {
+    const registry = new AnnotationRegistry();
+    registry.register({
+        name: "highlight",
+        tag: "<mark>",
+        supportsPending: true
+    });
+
+    const state = createEditorState();
+
+    state.pending.highlight = true;
+
+    expect(buildPendingAnnotations(state, 1, 4, registry)).toEqual([
+        { start: 1, end: 4, tag: "<mark>" }
+    ]);
 });

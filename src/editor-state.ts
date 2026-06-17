@@ -1,9 +1,4 @@
-import { createAnnotationTag } from "./registry.js";
-
-export type ToggleAnnotationName =
-    | "strong"
-    | "em"
-    | "underline";
+import { AnnotationRegistry, createAnnotationTag, defaultRegistry } from "./registry.js";
 
 /**
  * Pending annotation values are one-shot overrides for the next inserted text.
@@ -12,7 +7,7 @@ export type ToggleAnnotationName =
  * true      = make the next inserted text have this annotation
  * false     = make the next inserted text not have this annotation
  */
-export type PendingAnnotations = Partial<Record<ToggleAnnotationName, boolean>>;
+export type PendingAnnotations = Record<string, boolean | undefined>;
 
 export interface EditorState {
     pending: PendingAnnotations;
@@ -33,11 +28,12 @@ export function createEditorState(): EditorState {
 export function buildPendingAnnotations(
     state: EditorState,
     start: number,
-    end: number
+    end: number,
+    registry: AnnotationRegistry = defaultRegistry
 ): PendingAnnotationRange[] {
     const result: PendingAnnotationRange[] = [];
 
-    for (const name of Object.keys(state.pending) as ToggleAnnotationName[]) {
+    for (const name of Object.keys(state.pending)) {
         const enabled = state.pending[name];
 
         if (enabled === undefined) {
@@ -47,7 +43,7 @@ export function buildPendingAnnotations(
         result.push({
             start,
             end,
-            tag: createAnnotationTag(name, enabled)
+            tag: createAnnotationTag(name, enabled, registry)
         });
     }
 
@@ -57,7 +53,7 @@ export function buildPendingAnnotations(
 export function clearPendingAnnotations(
     state: EditorState
 ): void {
-    for (const name of Object.keys(state.pending) as ToggleAnnotationName[]) {
+    for (const name of Object.keys(state.pending)) {
         delete state.pending[name];
     }
 }
