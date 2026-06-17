@@ -6,16 +6,28 @@ import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
 import { getSelectionRange, setSelectionRange } from "./selection.js";
 
+export interface EditorSplitEvent {
+    editor: Editor;
+    fragment: Fragment;
+    offset: number;
+}
+
+export interface EditorOptions {
+    onSplit?: (event: EditorSplitEvent) => void;
+}
+
 export interface Editor {
     element: HTMLElement;
     fragment: Fragment;
     state: EditorState;
+    focus(start?: number, end?: number): void;
     destroy(): void;
 }
 
 export function edit(
     element: HTMLElement,
-    fragment: Fragment
+    fragment: Fragment,
+    options: EditorOptions = {}
 ): Editor {
     const state = createEditorState();
 
@@ -33,7 +45,28 @@ export function edit(
         }
     }
 
+    const editor: Editor = {
+        element,
+        fragment,
+        state,
+        focus(start = 0, end = start): void {
+            element.focus();
+            setSelectionRange(element, start, end);
+        },
+        destroy(): void {
+            element.removeEventListener("keydown", handleKeyDown);
+            element.removeEventListener("beforeinput", handleBeforeInput);
+            element.removeAttribute("contenteditable");
+        }
+    };
+
     function handleKeyDown(event: KeyboardEvent): void {
+        if (event.key === "Enter" && event.ctrlKey) {
+            event.preventDefault();
+            requestSplit();
+            return;
+        }
+
         if (event.key === "Enter") {
             event.preventDefault();
             insertNewline();
@@ -130,6 +163,20 @@ export function edit(
         ]);
 
         rerender(selection.start, selection.end);
+    }
+
+    function requestSplit(): void {
+        const selection = getSelectionRange(element);
+
+        if (!selection) {
+            return;
+        }
+
+        options.onSplit?.({
+            editor,
+            fragment,
+            offset: selection.start
+        });
     }
 
     function insertNewline(): void {
@@ -389,16 +436,7 @@ export function edit(
     element.addEventListener("keydown", handleKeyDown);
     element.addEventListener("beforeinput", handleBeforeInput);
 
-    return {
-        element,
-        fragment,
-        state,
-        destroy(): void {
-            element.removeEventListener("keydown", handleKeyDown);
-            element.removeEventListener("beforeinput", handleBeforeInput);
-            element.removeAttribute("contenteditable");
-        }
-    };
+    return editor;
 }
 
 function getShortcutAnnotation(

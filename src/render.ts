@@ -34,10 +34,7 @@ export function render(fragment: Fragment): string {
         html += openTags[i].close;
     }
 
-    return appendTrailingNewlineSentinel(
-        fragment,
-        html
-    );
+    return appendTrailingNewlineSentinel(fragment, html);
 }
 
 function appendTrailingNewlineSentinel(
@@ -48,10 +45,7 @@ function appendTrailingNewlineSentinel(
         return html;
     }
 
-    return (
-        html +
-        '<span data-cobalt-sentinel="true">\u200B</span>'
-    );
+    return `${html}<span data-cobalt-sentinel="true">\u200B</span>`;
 }
 
 function getRenderTags(state: EffectiveState): RenderTag[] {

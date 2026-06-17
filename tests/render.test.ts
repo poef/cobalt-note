@@ -123,3 +123,14 @@ describe("annotation evaluation and rendering", () => {
         expect(registry.findByTag('</span data-comment-id="1">')?.name).toBe("comment");
     });
 });
+
+test("renderer appends an ignored sentinel after trailing newline", () => {
+    const fragment: Fragment = {
+        text: "hello\n",
+        annotations: []
+    };
+
+    expect(render(fragment)).toBe(
+        'hello\n<span data-cobalt-sentinel="true">\u200B</span>'
+    );
+});

@@ -2,7 +2,8 @@ import {
     addAnnotation,
     deleteRange,
     Fragment,
-    insertText
+    insertText,
+    splitFragment
 } from "../src/fragment.js";
 
 describe("fragment range transforms", () => {
@@ -113,5 +114,49 @@ describe("fragment range transforms", () => {
 
         expect(addAnnotation(fragment, [2, 2], "<strong>")).toBeNull();
         expect(fragment.annotations).toHaveLength(0);
+    });
+});
+
+describe("fragment splitting", () => {
+    test("splitFragment divides text and moves annotations into the second fragment", () => {
+        const fragment: Fragment = {
+            text: "hello world",
+            annotations: [
+                { range: [6, 11], tag: "<strong>", order: 1 }
+            ]
+        };
+
+        const result = splitFragment(fragment, 6);
+
+        expect(result.before).toEqual({
+            text: "hello ",
+            annotations: []
+        });
+
+        expect(result.after).toEqual({
+            text: "world",
+            annotations: [
+                { range: [0, 5], tag: "<strong>", order: 1 }
+            ]
+        });
+    });
+
+    test("splitFragment splits annotations that cross the split point", () => {
+        const fragment: Fragment = {
+            text: "hello world",
+            annotations: [
+                { range: [0, 11], tag: "<em>", order: 1 }
+            ]
+        };
+
+        const result = splitFragment(fragment, 6);
+
+        expect(result.before.annotations).toEqual([
+            { range: [0, 6], tag: "<em>", order: 1 }
+        ]);
+
+        expect(result.after.annotations).toEqual([
+            { range: [0, 5], tag: "<em>", order: 1 }
+        ]);
     });
 });

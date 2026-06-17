@@ -3,16 +3,17 @@ function getTextNodes(root) {
     const nodes = [];
     let current = walker.nextNode();
     while (current) {
-        nodes.push(current);
+        const text = current;
+        if (!isSentinelTextNode(text)) {
+            nodes.push(text);
+        }
         current = walker.nextNode();
     }
     return nodes;
 }
 export function getOffset(root, targetNode, targetOffset) {
-    const range = document.createRange();
-    range.setStart(root, 0);
-    range.setEnd(targetNode, targetOffset);
-    return range.toString().length;
+    const result = getOffsetFromPosition(root, targetNode, targetOffset);
+    return result ?? getTextLength(root);
 }
 export function getDomPosition(root, offset) {
     const textNodes = getTextNodes(root);
@@ -69,5 +70,59 @@ export function setSelectionRange(root, start, end) {
     selection.removeAllRanges();
     selection.addRange(range);
     return true;
+}
+function getOffsetFromPosition(root, targetNode, targetOffset) {
+    let offset = 0;
+    let found = false;
+    function walk(node) {
+        if (found) {
+            return;
+        }
+        if (node === targetNode) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node;
+                if (!isSentinelTextNode(text)) {
+                    offset += Math.min(targetOffset, text.textContent?.length ?? 0);
+                }
+            }
+            else {
+                for (let i = 0; i < targetOffset; i++) {
+                    offset += getTextLength(node.childNodes[i]);
+                }
+            }
+            found = true;
+            return;
+        }
+        if (node.nodeType === Node.TEXT_NODE) {
+            offset += getTextLength(node);
+            return;
+        }
+        for (const child of Array.from(node.childNodes)) {
+            walk(child);
+        }
+    }
+    walk(root);
+    return found
+        ? offset
+        : null;
+}
+function getTextLength(node) {
+    if (!node) {
+        return 0;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+        const text = node;
+        return isSentinelTextNode(text)
+            ? 0
+            : text.textContent?.length ?? 0;
+    }
+    let length = 0;
+    for (const child of Array.from(node.childNodes)) {
+        length += getTextLength(child);
+    }
+    return length;
+}
+function isSentinelTextNode(node) {
+    return node.parentElement?.hasAttribute("data-cobalt-sentinel") ?? false;
 }
 //# sourceMappingURL=selection.js.map

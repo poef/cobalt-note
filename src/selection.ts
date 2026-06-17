@@ -18,7 +18,12 @@ function getTextNodes(root: HTMLElement): Text[] {
     let current = walker.nextNode();
 
     while (current) {
-        nodes.push(current as Text);
+        const text = current as Text;
+
+        if (!isSentinelTextNode(text)) {
+            nodes.push(text);
+        }
+
         current = walker.nextNode();
     }
 
@@ -30,12 +35,13 @@ export function getOffset(
     targetNode: Node,
     targetOffset: number
 ): number {
-    const range = document.createRange();
+    const result = getOffsetFromPosition(
+        root,
+        targetNode,
+        targetOffset
+    );
 
-    range.setStart(root, 0);
-    range.setEnd(targetNode, targetOffset);
-
-    return range.toString().length;
+    return result ?? getTextLength(root);
 }
 
 export function getDomPosition(
@@ -140,4 +146,80 @@ export function setSelectionRange(
     selection.addRange(range);
 
     return true;
+}
+
+function getOffsetFromPosition(
+    root: Node,
+    targetNode: Node,
+    targetOffset: number
+): number | null {
+    let offset = 0;
+    let found = false;
+
+    function walk(node: Node): void {
+        if (found) {
+            return;
+        }
+
+        if (node === targetNode) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node as Text;
+
+                if (!isSentinelTextNode(text)) {
+                    offset += Math.min(
+                        targetOffset,
+                        text.textContent?.length ?? 0
+                    );
+                }
+            } else {
+                for (let i = 0; i < targetOffset; i++) {
+                    offset += getTextLength(node.childNodes[i]);
+                }
+            }
+
+            found = true;
+            return;
+        }
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            offset += getTextLength(node);
+            return;
+        }
+
+        for (const child of Array.from(node.childNodes)) {
+            walk(child);
+        }
+    }
+
+    walk(root);
+
+    return found
+        ? offset
+        : null;
+}
+
+function getTextLength(node: Node | undefined): number {
+    if (!node) {
+        return 0;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+        const text = node as Text;
+
+        return isSentinelTextNode(text)
+            ? 0
+            : text.textContent?.length ?? 0;
+    }
+
+    let length = 0;
+
+    for (const child of Array.from(node.childNodes)) {
+        length += getTextLength(child);
+    }
+
+    return length;
+}
+
+function isSentinelTextNode(node: Text): boolean {
+    return node.parentElement?.hasAttribute("data-cobalt-sentinel") ?? false;
 }

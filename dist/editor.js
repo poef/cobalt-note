@@ -4,7 +4,7 @@ import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
 import { getSelectionRange, setSelectionRange } from "./selection.js";
-export function edit(element, fragment) {
+export function edit(element, fragment, options = {}) {
     const state = createEditorState();
     function rerender(start, end) {
         element.innerHTML = render(fragment);
@@ -13,7 +13,26 @@ export function edit(element, fragment) {
             setSelectionRange(element, start, end);
         }
     }
+    const editor = {
+        element,
+        fragment,
+        state,
+        focus(start = 0, end = start) {
+            element.focus();
+            setSelectionRange(element, start, end);
+        },
+        destroy() {
+            element.removeEventListener("keydown", handleKeyDown);
+            element.removeEventListener("beforeinput", handleBeforeInput);
+            element.removeAttribute("contenteditable");
+        }
+    };
     function handleKeyDown(event) {
+        if (event.key === "Enter" && event.ctrlKey) {
+            event.preventDefault();
+            requestSplit();
+            return;
+        }
         if (event.key === "Enter") {
             event.preventDefault();
             insertNewline();
@@ -66,6 +85,17 @@ export function edit(element, fragment) {
             new AddAnnotationCommand([selection.start, selection.end], tag)
         ]);
         rerender(selection.start, selection.end);
+    }
+    function requestSplit() {
+        const selection = getSelectionRange(element);
+        if (!selection) {
+            return;
+        }
+        options.onSplit?.({
+            editor,
+            fragment,
+            offset: selection.start
+        });
     }
     function insertNewline() {
         const selection = getSelectionRange(element);
@@ -193,16 +223,7 @@ export function edit(element, fragment) {
     rerender();
     element.addEventListener("keydown", handleKeyDown);
     element.addEventListener("beforeinput", handleBeforeInput);
-    return {
-        element,
-        fragment,
-        state,
-        destroy() {
-            element.removeEventListener("keydown", handleKeyDown);
-            element.removeEventListener("beforeinput", handleBeforeInput);
-            element.removeAttribute("contenteditable");
-        }
-    };
+    return editor;
 }
 function getShortcutAnnotation(event) {
     switch (event.key.toLowerCase()) {

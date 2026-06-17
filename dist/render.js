@@ -25,8 +25,7 @@ function appendTrailingNewlineSentinel(fragment, html) {
     if (!fragment.text.endsWith("\n")) {
         return html;
     }
-    return (html +
-        '<span data-cobalt-sentinel="true">\u200B</span>');
+    return `${html}<span data-cobalt-sentinel="true">\u200B</span>`;
 }
 function getRenderTags(state) {
     return Object

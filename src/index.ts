@@ -1,13 +1,15 @@
 export type {
     Annotation,
-    Fragment
+    Fragment,
+    SplitFragmentResult
 } from "./fragment.js";
 
 export {
     addAnnotation,
     deleteRange,
     getNextOrder,
-    insertText
+    insertText,
+    splitFragment
 } from "./fragment.js";
 
 export {
@@ -27,7 +29,9 @@ export {
 } from "./editor.js";
 
 export type {
-    Editor
+    Editor,
+    EditorOptions,
+    EditorSplitEvent
 } from "./editor.js";
 
 export {

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cobalt Notebook example</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 820px;
+            margin: 48px auto;
+            padding: 0 24px;
+            line-height: 1.5;
+        }
+
+        #notes {
+            display: grid;
+            gap: 10px;
+        }
+
+        .note {
+            min-height: 1.5em;
+            padding: 10px 12px;
+            border: 1px solid #bbb;
+            border-radius: 8px;
+            outline: none;
+            white-space: pre-wrap;
+        }
+
+        .note:focus {
+            border-color: #555;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+        }
+
+        pre {
+            background: #f6f6f6;
+            padding: 12px;
+            border-radius: 8px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cobalt Notebook example</h1>
+
+    <p>
+        This page coordinates multiple independent cobalt note editors.
+        Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> inside a note to split it
+        into two notes and move the cursor to the start of the new next note.
+    </p>
+
+    <p>
+        Normal <kbd>Enter</kbd> still inserts a line break inside the current note.
+    </p>
+
+    <div id="notes"></div>
+
+    <h2>Notebook data</h2>
+    <pre id="notebook"></pre>
+
+    <script type="module">
+        import { edit, splitFragment } from "../dist/index.js";
+
+        const notes = [
+            {
+                text: "This is the first note. Try pressing Ctrl+Enter in the middle.",
+                annotations: [
+                    {
+                        range: [12, 22],
+                        tag: "<strong>",
+                        order: 1
+                    }
+                ]
+            },
+            {
+                text: "This is another note.",
+                annotations: []
+            }
+        ];
+
+        const notesElement = document.querySelector("#notes");
+        const notebookElement = document.querySelector("#notebook");
+        let editors = [];
+
+        function renderNotebook(focusIndex = null, focusOffset = 0) {
+            for (const editor of editors) {
+                editor.destroy();
+            }
+
+            editors = [];
+            notesElement.textContent = "";
+
+            notes.forEach((fragment, index) => {
+                const element = document.createElement("div");
+                element.className = "note";
+                notesElement.append(element);
+
+                const editor = edit(element, fragment, {
+                    onSplit(event) {
+                        splitNote(index, event.offset);
+                    }
+                });
+
+                editors.push(editor);
+            });
+
+            if (focusIndex !== null) {
+                requestAnimationFrame(() => {
+                    editors[focusIndex]?.focus(focusOffset, focusOffset);
+                });
+            }
+        }
+
+        function splitNote(index, offset) {
+            const result = splitFragment(notes[index], offset);
+
+            notes.splice(
+                index,
+                1,
+                result.before,
+                result.after
+            );
+
+            renderNotebook(index + 1, 0);
+        }
+
+        function updateNotebookPreview() {
+            notebookElement.textContent = JSON.stringify(notes, null, 2);
+            requestAnimationFrame(updateNotebookPreview);
+        }
+
+        renderNotebook();
+        updateNotebookPreview();
+    </script>
+</body>
+</html>

@@ -42,6 +42,12 @@ Then visit:
 http://localhost:8080/example/
 ```
 
+There is also a minimal notebook demo that renders multiple independent note editors and coordinates note splitting with Ctrl+Enter:
+
+```text
+http://localhost:8080/example/notebook.html
+```
+
 The example creates a single cobalt editor instance and shows the live fragment JSON below it.
 
 
@@ -58,3 +64,19 @@ Cobalt uses character offsets as its editor coordinate system. The editor host s
 ```
 
 Pressing Enter inserts a newline character (`\n`) into the fragment text. If the caret is exactly at the end boundary of an annotation, that annotation does not grow across the newline. If the caret is inside an annotation, the annotation remains intact and includes the newline.
+
+
+## Notebook coordination
+
+A single cobalt editor only owns one fragment. It does not know about sibling notes. For notebook-style applications, pass an `onSplit` callback to `edit()` and let the parent application decide how to split and re-render notes.
+
+```ts
+edit(element, fragment, {
+    onSplit(event) {
+        const { before, after } = splitFragment(fragment, event.offset);
+        // Replace the current note with before/after in your notebook model.
+    }
+});
+```
+
+In the example notebook, Ctrl+Enter requests a split. The parent splits the current fragment at the cursor offset, replaces the note with two notes, and focuses the new next note at offset 0. Normal Enter still inserts a newline inside the current note.

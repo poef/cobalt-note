@@ -34,3 +34,13 @@ describe("DOM selection mapping", () => {
         expect(position.offset).toBe(1);
     });
 });
+
+test("sentinel text nodes do not contribute to cobalt offsets", () => {
+    document.body.innerHTML = '<div id="root">hello\n<span data-cobalt-sentinel="true">\u200B</span></div>';
+    const root = document.getElementById("root") as HTMLElement;
+    const sentinel = root.querySelector("span")!.firstChild!;
+
+    expect(getOffset(root, sentinel, 1)).toBe(6);
+    expect(getDomPosition(root, 6).node.textContent).toBe("hello\n");
+    expect(getDomPosition(root, 6).offset).toBe(6);
+});

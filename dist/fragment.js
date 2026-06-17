@@ -63,6 +63,37 @@ export function deleteRange(fragment, startOffset, endOffset) {
     })
         .filter(annotation => annotation.range[1] > annotation.range[0]);
 }
+export function splitFragment(fragment, offset) {
+    const splitOffset = clamp(offset, 0, fragment.text.length);
+    const before = {
+        text: fragment.text.slice(0, splitOffset),
+        annotations: []
+    };
+    const after = {
+        text: fragment.text.slice(splitOffset),
+        annotations: []
+    };
+    for (const annotation of fragment.annotations) {
+        const [start, end] = annotation.range;
+        const beforeStart = start;
+        const beforeEnd = Math.min(end, splitOffset);
+        if (beforeEnd > beforeStart) {
+            before.annotations.push({
+                ...annotation,
+                range: [beforeStart, beforeEnd]
+            });
+        }
+        const afterStart = Math.max(start, splitOffset) - splitOffset;
+        const afterEnd = end - splitOffset;
+        if (afterEnd > afterStart) {
+            after.annotations.push({
+                ...annotation,
+                range: [afterStart, afterEnd]
+            });
+        }
+    }
+    return { before, after };
+}
 function transformDeletedOffset(offset, deleteStart, deleteEnd) {
     if (offset <= deleteStart) {
         return offset;
