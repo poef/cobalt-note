@@ -126,6 +126,61 @@ export function getOffsetAtPoint(root, x, y) {
     }
     return getOffset(root, position.node, position.offset);
 }
+export function getWordRangeAtPoint(root, x, y) {
+    const offset = getOffsetAtPoint(root, x, y);
+    const text = getRootText(root);
+    return getWordRange(text, offset);
+}
+export function getParagraphRangeAtPoint(root, x, y) {
+    const offset = getOffsetAtPoint(root, x, y);
+    const text = getRootText(root);
+    return getParagraphRange(text, offset);
+}
+function getWordRange(text, offset) {
+    if (text.length === 0) {
+        return { start: 0, end: 0 };
+    }
+    const clampedOffset = Math.max(0, Math.min(offset, text.length));
+    let index = clampedOffset;
+    if (index === text.length || !isWordCharacter(text[index])) {
+        index = Math.max(0, index - 1);
+    }
+    if (!isWordCharacter(text[index])) {
+        return {
+            start: clampedOffset,
+            end: clampedOffset
+        };
+    }
+    let start = index;
+    let end = index + 1;
+    while (start > 0 && isWordCharacter(text[start - 1])) {
+        start--;
+    }
+    while (end < text.length && isWordCharacter(text[end])) {
+        end++;
+    }
+    return { start, end };
+}
+function getParagraphRange(text, offset) {
+    const clampedOffset = Math.max(0, Math.min(offset, text.length));
+    let start = clampedOffset;
+    let end = clampedOffset;
+    while (start > 0 && text[start - 1] !== "\n") {
+        start--;
+    }
+    while (end < text.length && text[end] !== "\n") {
+        end++;
+    }
+    return { start, end };
+}
+function isWordCharacter(character) {
+    return character !== undefined && /[\p{L}\p{N}_]/u.test(character);
+}
+function getRootText(root) {
+    return getTextNodes(root)
+        .map(node => node.textContent ?? "")
+        .join("");
+}
 function getNearestCaretOffset(root, x, y) {
     const textLength = getTextLength(root);
     let best = null;

@@ -8,7 +8,9 @@ import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
 import {
     getCaretClientRect,
     getOffsetAtPoint,
+    getParagraphRangeAtPoint,
     getSelectionRange,
+    getWordRangeAtPoint,
     isOffsetOnFirstVisualLine,
     isOffsetOnLastVisualLine,
     setSelectionRange
@@ -25,15 +27,18 @@ export interface Editor {
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
     getOffsetAtPoint(x: number, y: number): number;
+    getWordRangeAtPoint(x: number, y: number): NonNullable<ReturnType<typeof getSelectionRange>>;
+    getParagraphRangeAtPoint(x: number, y: number): NonNullable<ReturnType<typeof getSelectionRange>>;
     getClientRect(): DOMRect;
-    showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[]): void;
+    showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[], active?: boolean): void;
     clearSelectionRanges(): void;
     destroy(): void;
 }
 
 function renderDecoratedFragment(
     fragment: Fragment,
-    ranges: ReturnType<typeof getSelectionRange>[]
+    ranges: ReturnType<typeof getSelectionRange>[],
+    active = true
 ): string {
     if (ranges.length === 0) {
         return render(fragment);
@@ -52,7 +57,9 @@ function renderDecoratedFragment(
             )
             .map((range, index) => ({
                 range: [range.start, range.end] as [number, number],
-                tag: '<span data-cobalt-selection="true">',
+                tag: active
+                    ? '<span data-cobalt-selection="true" data-cobalt-selection-active="true">'
+                    : '<span data-cobalt-selection="true" data-cobalt-selection-active="false">',
                 order: maxOrder + index + 1
             }))
     ];
@@ -69,12 +76,17 @@ export function edit(
 ): Editor {
     const state = createEditorState();
     let selectionDecorationRanges: ReturnType<typeof getSelectionRange>[] = [];
+    let selectionDecorationActive = true;
 
     function rerender(
         start?: number,
         end?: number
     ): void {
-        element.innerHTML = renderDecoratedFragment(fragment, selectionDecorationRanges);
+        element.innerHTML = renderDecoratedFragment(
+            fragment,
+            selectionDecorationRanges,
+            selectionDecorationActive
+        );
 
         if (
             start !== undefined &&
@@ -138,10 +150,17 @@ export function edit(
         getOffsetAtPoint(x: number, y: number): number {
             return getOffsetAtPoint(element, x, y);
         },
+        getWordRangeAtPoint(x: number, y: number) {
+            return getWordRangeAtPoint(element, x, y);
+        },
+        getParagraphRangeAtPoint(x: number, y: number) {
+            return getParagraphRangeAtPoint(element, x, y);
+        },
         getClientRect(): DOMRect {
             return element.getBoundingClientRect();
         },
-        showSelectionRanges(ranges): void {
+        showSelectionRanges(ranges, active = true): void {
+            selectionDecorationActive = active;
             selectionDecorationRanges = ranges.filter((range): range is NonNullable<typeof range> =>
                 range !== null && range.end > range.start
             );

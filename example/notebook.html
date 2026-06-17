@@ -32,9 +32,14 @@
             box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
         }
 
-        [data-cobalt-selection="true"] {
+        [data-cobalt-selection="true"][data-cobalt-selection-active="true"] {
             background: Highlight;
             color: HighlightText;
+        }
+
+        [data-cobalt-selection="true"][data-cobalt-selection-active="false"] {
+            background: rgba(128, 128, 128, 0.35);
+            color: inherit;
         }
 
         pre {
@@ -70,10 +75,16 @@
     <script type="module">
         import {
             NotebookController,
+            addAnnotation,
             concatFragments,
+            createAnnotationTag,
+            createLinkAnnotationTag,
+            defaultRegistry,
             deleteRange,
             edit,
+            insertText,
             joinFragments,
+            getEffectiveState,
             sliceFragment,
             splitFragment
         } from "../dist/index.js";
@@ -122,9 +133,17 @@
                     handleNotebookKeyDown(event, index, editor);
                 }, { capture: true });
 
-                element.addEventListener("pointerdown", event => {
-                    handleNotebookPointerDown(event);
+                element.addEventListener("beforeinput", event => {
+                    handleNotebookBeforeInput(event);
                 }, { capture: true });
+
+                element.addEventListener("mousedown", event => {
+                    handleNotebookMouseDown(event);
+                }, { capture: true });
+
+                element.addEventListener("focusin", () => {
+                    notebook.setSelectionActive(true);
+                });
             });
 
             notebook.setAdapters(editors.map((editor, index) => ({
@@ -136,8 +155,10 @@
                 isCaretOnLastVisualLine: () => editor.isCaretOnLastVisualLine(),
                 focusNearestPoint: (x, y) => editor.focusNearestPoint(x, y),
                 getOffsetAtPoint: (x, y) => editor.getOffsetAtPoint(x, y),
+                getWordRangeAtPoint: (x, y) => editor.getWordRangeAtPoint(x, y),
+                getParagraphRangeAtPoint: (x, y) => editor.getParagraphRangeAtPoint(x, y),
                 getClientRect: () => editor.getClientRect(),
-                showSelectionRanges: ranges => editor.showSelectionRanges(ranges),
+                showSelectionRanges: (ranges, active) => editor.showSelectionRanges(ranges, active),
                 clearSelectionRanges: () => editor.clearSelectionRanges()
             })));
 
@@ -149,8 +170,30 @@
         }
 
 
-        function handleNotebookPointerDown(event) {
+        function handleNotebookMouseDown(event) {
             if (event.button !== 0) {
+                return;
+            }
+
+            if (event.detail >= 3) {
+                cancelPointerSelection();
+
+                if (notebook.selectParagraphAtClientPosition(event.clientX, event.clientY)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+                return;
+            }
+
+            if (event.detail === 2) {
+                cancelPointerSelection();
+
+                if (notebook.selectWordAtClientPosition(event.clientX, event.clientY)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
                 return;
             }
 
@@ -169,11 +212,11 @@
             pointerSelectionActive = true;
             notebook.startPointerSelection(point);
 
-            window.addEventListener("pointermove", handleNotebookPointerMove, true);
-            window.addEventListener("pointerup", handleNotebookPointerUp, true);
+            window.addEventListener("mousemove", handleNotebookMouseMove, true);
+            window.addEventListener("mouseup", handleNotebookMouseUp, true);
         }
 
-        function handleNotebookPointerMove(event) {
+        function handleNotebookMouseMove(event) {
             if (!pointerSelectionActive) {
                 return;
             }
@@ -192,7 +235,7 @@
             notebook.updatePointerSelection(point);
         }
 
-        function handleNotebookPointerUp(event) {
+        function handleNotebookMouseUp(event) {
             if (!pointerSelectionActive) {
                 return;
             }
@@ -211,10 +254,59 @@
             }
 
             notebook.finishPointerSelection();
-
-            window.removeEventListener("pointermove", handleNotebookPointerMove, true);
-            window.removeEventListener("pointerup", handleNotebookPointerUp, true);
+            removeMouseSelectionListeners();
         }
+
+        function cancelPointerSelection() {
+            pointerSelectionActive = false;
+            removeMouseSelectionListeners();
+        }
+
+        function removeMouseSelectionListeners() {
+            window.removeEventListener("mousemove", handleNotebookMouseMove, true);
+            window.removeEventListener("mouseup", handleNotebookMouseUp, true);
+        }
+
+
+
+        document.addEventListener("mousedown", event => {
+            if (notesElement.contains(event.target)) {
+                return;
+            }
+
+            if (isSelectableTarget(event.target)) {
+                notebook.clearSelection();
+            } else {
+                notebook.setSelectionActive(false);
+            }
+        }, true);
+
+        document.addEventListener("focusin", event => {
+            if (notesElement.contains(event.target)) {
+                notebook.setSelectionActive(true);
+            } else {
+                notebook.setSelectionActive(false);
+            }
+        });
+
+        document.addEventListener("selectionchange", () => {
+            const selection = window.getSelection();
+
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                return;
+            }
+
+            const range = selection.getRangeAt(0);
+
+            if (
+                notesElement.contains(range.startContainer) ||
+                notesElement.contains(range.endContainer)
+            ) {
+                return;
+            }
+
+            notebook.clearSelection();
+        });
 
         function handleNotebookKeyDown(event, index, editor) {
             const selection = editor.getSelection();
@@ -227,6 +319,18 @@
                 notebook.resetVerticalNavigation();
             } else {
                 notebook.prepareVerticalNavigation(index);
+            }
+
+            if (notebook.hasSelection() && event.ctrlKey) {
+                const definition = defaultRegistry.findByShortcut(event);
+
+                if (definition) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    applyAnnotationToNotebookSelection(definition);
+                    return;
+                }
             }
 
             if (event.shiftKey && event.key === "ArrowLeft") {
@@ -265,6 +369,16 @@
                 event.preventDefault();
                 event.stopPropagation();
                 deleteNotebookSelection();
+                return;
+            }
+
+            if (
+                notebook.hasSelection() &&
+                event.key.length === 1 &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.altKey
+            ) {
                 return;
             }
 
@@ -329,6 +443,65 @@
             }
         }
 
+        function applyAnnotationToNotebookSelection(definition) {
+            const ordered = notebook.getOrderedSelection();
+
+            if (!ordered) {
+                return;
+            }
+
+            const firstNote = notes[ordered.start.noteIndex];
+            const firstState = getEffectiveState(
+                firstNote.annotations,
+                ordered.start.offset
+            );
+
+            let tag;
+
+            if (definition.name === "link") {
+                const href = window.prompt("Enter URL");
+
+                if (href === null) {
+                    return;
+                }
+
+                const trimmed = href.trim();
+
+                if (trimmed.length === 0) {
+                    return;
+                }
+
+                tag = createLinkAnnotationTag(trimmed);
+            } else {
+                tag = createAnnotationTag(
+                    definition.name,
+                    firstState[definition.name] === undefined
+                );
+            }
+
+            for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
+                const range = notebook.getSelectedRangeForNote(index);
+
+                if (!range || range.end <= range.start) {
+                    continue;
+                }
+
+                addAnnotation(
+                    notes[index],
+                    [range.start, range.end],
+                    tag
+                );
+            }
+
+            const focus = notebook.getSelection()?.focus;
+            notebook.clearSelection();
+
+            renderNotebook(
+                focus?.noteIndex ?? ordered.end.noteIndex,
+                focus?.offset ?? ordered.end.offset
+            );
+        }
+
         function isNavigationOrEditingKey(event) {
             return (
                 event.key.startsWith("Arrow") ||
@@ -340,10 +513,20 @@
         }
 
         function deleteNotebookSelection() {
+            const position = removeNotebookSelection();
+
+            if (!position) {
+                return;
+            }
+
+            renderNotebook(position.noteIndex, position.offset);
+        }
+
+        function removeNotebookSelection() {
             const ordered = notebook.getOrderedSelection();
 
             if (!ordered) {
-                return;
+                return null;
             }
 
             const start = ordered.start;
@@ -358,8 +541,10 @@
                     end.offset
                 );
 
-                renderNotebook(start.noteIndex, start.offset);
-                return;
+                return {
+                    noteIndex: start.noteIndex,
+                    offset: start.offset
+                };
             }
 
             const prefix = sliceFragment(
@@ -382,7 +567,49 @@
                 result.fragment
             );
 
-            renderNotebook(start.noteIndex, start.offset);
+            return {
+                noteIndex: start.noteIndex,
+                offset: start.offset
+            };
+        }
+
+        function handleNotebookBeforeInput(event) {
+            if (!notebook.hasSelection()) {
+                return;
+            }
+
+            if (
+                event.inputType !== "insertText" &&
+                event.inputType !== "insertFromPaste"
+            ) {
+                return;
+            }
+
+            const text = event.data ?? "";
+
+            if (text.length === 0) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const position = removeNotebookSelection();
+
+            if (!position) {
+                return;
+            }
+
+            insertText(
+                notes[position.noteIndex],
+                position.offset,
+                text
+            );
+
+            renderNotebook(
+                position.noteIndex,
+                position.offset + text.length
+            );
         }
 
         function splitNote(index, offset) {
@@ -425,6 +652,7 @@
                 return;
             }
 
+            const caretOffset = notes[index].text.length;
             const result = joinFragments(
                 notes[index],
                 notes[index + 1]
@@ -438,8 +666,33 @@
 
             renderNotebook(
                 index,
-                result.joinOffset
+                caretOffset
             );
+        }
+
+
+        function isSelectableTarget(target) {
+            if (!(target instanceof Element)) {
+                return true;
+            }
+
+            let element = target;
+
+            while (element && element !== document.documentElement) {
+                const style = window.getComputedStyle(element);
+
+                if (style.userSelect === "none") {
+                    return false;
+                }
+
+                if (style.userSelect === "text" || style.userSelect === "all") {
+                    return true;
+                }
+
+                element = element.parentElement;
+            }
+
+            return true;
         }
 
         function updateNotebookPreview() {

@@ -1,6 +1,7 @@
 export class NotebookController {
     adapters = [];
     selection = null;
+    selectionActive = true;
     desiredVerticalX = null;
     setAdapters(adapters) {
         this.adapters = adapters;
@@ -15,15 +16,43 @@ export class NotebookController {
         return this.selection !== null &&
             compareNotebookPoints(this.selection.anchor, this.selection.focus) !== 0;
     }
+    setSelectionActive(active) {
+        if (this.selectionActive === active) {
+            return;
+        }
+        this.selectionActive = active;
+        this.updateSelectionDecorations();
+    }
+    isSelectionActive() {
+        return this.selectionActive;
+    }
+    selectRange(anchor, focus, active = true) {
+        this.resetVerticalNavigation();
+        this.selectionActive = active;
+        this.selection = {
+            anchor: { ...anchor },
+            focus: { ...focus }
+        };
+        this.adapters[focus.noteIndex]?.focus(focus.offset, focus.offset);
+        this.updateSelectionDecorations();
+    }
+    selectWordAtClientPosition(x, y) {
+        return this.selectExpandedRangeAtClientPosition(x, y, "word");
+    }
+    selectParagraphAtClientPosition(x, y) {
+        return this.selectExpandedRangeAtClientPosition(x, y, "paragraph");
+    }
     clearSelection() {
         if (!this.selection) {
             return;
         }
         this.selection = null;
+        this.selectionActive = true;
         this.clearSelectionDecorations();
     }
     startPointerSelection(point) {
         this.resetVerticalNavigation();
+        this.selectionActive = true;
         this.selection = {
             anchor: { ...point },
             focus: { ...point }
@@ -173,6 +202,21 @@ export class NotebookController {
         this.adapters[targetIndex]?.focusNearestPoint(x, getVerticalCenter(targetRect));
         return true;
     }
+    selectExpandedRangeAtClientPosition(x, y, granularity) {
+        const index = this.getNoteIndexAtClientPosition(x, y);
+        if (index === null) {
+            return false;
+        }
+        const adapter = this.adapters[index];
+        const range = granularity === "word"
+            ? adapter.getWordRangeAtPoint?.(x, y)
+            : adapter.getParagraphRangeAtPoint?.(x, y);
+        if (!range || range.end <= range.start) {
+            return false;
+        }
+        this.selectRange({ noteIndex: index, offset: range.start }, { noteIndex: index, offset: range.end });
+        return true;
+    }
     getNoteIndexAtClientPosition(x, y) {
         if (this.adapters.length === 0) {
             return null;
@@ -317,7 +361,7 @@ export class NotebookController {
         for (let index = 0; index < this.adapters.length; index++) {
             const range = this.getSelectedRangeForNote(index);
             if (range) {
-                this.adapters[index].showSelectionRanges([range]);
+                this.adapters[index].showSelectionRanges([range], this.selectionActive);
             }
             else {
                 this.adapters[index].clearSelectionRanges();

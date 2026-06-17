@@ -12,8 +12,10 @@ export interface Editor {
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
     getOffsetAtPoint(x: number, y: number): number;
+    getWordRangeAtPoint(x: number, y: number): NonNullable<ReturnType<typeof getSelectionRange>>;
+    getParagraphRangeAtPoint(x: number, y: number): NonNullable<ReturnType<typeof getSelectionRange>>;
     getClientRect(): DOMRect;
-    showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[]): void;
+    showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[], active?: boolean): void;
     clearSelectionRanges(): void;
     destroy(): void;
 }

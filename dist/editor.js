@@ -4,8 +4,8 @@ import { getClipboardFragment, readFragmentFromClipboard, writeFragmentToClipboa
 import { createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
-import { getCaretClientRect, getOffsetAtPoint, getSelectionRange, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "./selection.js";
-function renderDecoratedFragment(fragment, ranges) {
+import { getCaretClientRect, getOffsetAtPoint, getParagraphRangeAtPoint, getSelectionRange, getWordRangeAtPoint, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "./selection.js";
+function renderDecoratedFragment(fragment, ranges, active = true) {
     if (ranges.length === 0) {
         return render(fragment);
     }
@@ -16,7 +16,9 @@ function renderDecoratedFragment(fragment, ranges) {
             .filter((range) => range !== null && range.end > range.start)
             .map((range, index) => ({
             range: [range.start, range.end],
-            tag: '<span data-cobalt-selection="true">',
+            tag: active
+                ? '<span data-cobalt-selection="true" data-cobalt-selection-active="true">'
+                : '<span data-cobalt-selection="true" data-cobalt-selection-active="false">',
             order: maxOrder + index + 1
         }))
     ];
@@ -28,8 +30,9 @@ function renderDecoratedFragment(fragment, ranges) {
 export function edit(element, fragment) {
     const state = createEditorState();
     let selectionDecorationRanges = [];
+    let selectionDecorationActive = true;
     function rerender(start, end) {
-        element.innerHTML = renderDecoratedFragment(fragment, selectionDecorationRanges);
+        element.innerHTML = renderDecoratedFragment(fragment, selectionDecorationRanges, selectionDecorationActive);
         if (start !== undefined &&
             end !== undefined) {
             setSelectionRange(element, start, end);
@@ -77,10 +80,17 @@ export function edit(element, fragment) {
         getOffsetAtPoint(x, y) {
             return getOffsetAtPoint(element, x, y);
         },
+        getWordRangeAtPoint(x, y) {
+            return getWordRangeAtPoint(element, x, y);
+        },
+        getParagraphRangeAtPoint(x, y) {
+            return getParagraphRangeAtPoint(element, x, y);
+        },
         getClientRect() {
             return element.getBoundingClientRect();
         },
-        showSelectionRanges(ranges) {
+        showSelectionRanges(ranges, active = true) {
+            selectionDecorationActive = active;
             selectionDecorationRanges = ranges.filter((range) => range !== null && range.end > range.start);
             const selection = getSelectionRange(element);
             rerender(selection?.start, selection?.end);

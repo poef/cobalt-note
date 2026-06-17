@@ -19,3 +19,5 @@ export declare function getCurrentCaretClientRect(root: HTMLElement): DOMRect | 
 export declare function isOffsetOnFirstVisualLine(root: HTMLElement, offset: number, tolerance?: number): boolean;
 export declare function isOffsetOnLastVisualLine(root: HTMLElement, offset: number, textLength: number, tolerance?: number): boolean;
 export declare function getOffsetAtPoint(root: HTMLElement, x: number, y: number): number;
+export declare function getWordRangeAtPoint(root: HTMLElement, x: number, y: number): SelectionRange;
+export declare function getParagraphRangeAtPoint(root: HTMLElement, x: number, y: number): SelectionRange;

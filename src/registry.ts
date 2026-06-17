@@ -143,6 +143,16 @@ export function parseAnnotationTag(
         };
     }
 
+    if (isCobaltSelectionOpeningTag(trimmed)) {
+        return {
+            name: "__selection",
+            enabled: true,
+            tag: trimmed,
+            closeTag: createHtmlCloseTag(trimmed),
+            priority: registry.get("__selection")?.priority ?? -100
+        };
+    }
+
     return null;
 }
 
@@ -203,6 +213,10 @@ function isClosingTag(tag: string, tagName: string): boolean {
     return new RegExp(`^</${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
 }
 
+
+function isCobaltSelectionOpeningTag(tag: string): boolean {
+    return /^<span\s[^>]*data-cobalt-selection=["']true["'][^>]*>$/i.test(tag);
+}
 
 function shortcutFromKeyboardEvent(event: KeyboardEvent): string {
     const parts: string[] = [];

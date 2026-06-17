@@ -1,3 +1,15 @@
+function getJoinOffsetAfterSeparator(first, second, separator) {
+    if (separator.length > 0) {
+        return first.text.length + separator.length;
+    }
+    if (first.text.endsWith("\n")) {
+        return first.text.length;
+    }
+    if (second.text.startsWith("\n")) {
+        return first.text.length + 1;
+    }
+    return first.text.length;
+}
 export function getNextOrder(fragment) {
     if (fragment.annotations.length === 0) {
         return 1;
@@ -153,7 +165,7 @@ export function splitFragment(fragment, offset) {
     return { before, after };
 }
 export function concatFragments(first, second, separator = "") {
-    const joinOffset = first.text.length;
+    const joinOffset = getJoinOffsetAfterSeparator(first, second, separator);
     const secondOffset = first.text.length + separator.length;
     return {
         fragment: {

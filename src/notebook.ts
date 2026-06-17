@@ -27,14 +27,17 @@ export interface NotebookNoteAdapter {
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
     getOffsetAtPoint(x: number, y: number): number;
+    getWordRangeAtPoint?(x: number, y: number): LocalSelectionRange;
+    getParagraphRangeAtPoint?(x: number, y: number): LocalSelectionRange;
     getClientRect(): DOMRect;
-    showSelectionRanges(ranges: LocalSelectionRange[]): void;
+    showSelectionRanges(ranges: LocalSelectionRange[], active?: boolean): void;
     clearSelectionRanges(): void;
 }
 
 export class NotebookController {
     private adapters: NotebookNoteAdapter[] = [];
     private selection: NotebookSelection | null = null;
+    private selectionActive = true;
     private desiredVerticalX: number | null = null;
 
     setAdapters(adapters: NotebookNoteAdapter[]): void {
@@ -53,18 +56,52 @@ export class NotebookController {
             compareNotebookPoints(this.selection.anchor, this.selection.focus) !== 0;
     }
 
+    setSelectionActive(active: boolean): void {
+        if (this.selectionActive === active) {
+            return;
+        }
+
+        this.selectionActive = active;
+        this.updateSelectionDecorations();
+    }
+
+    isSelectionActive(): boolean {
+        return this.selectionActive;
+    }
+
+    selectRange(anchor: NotebookPoint, focus: NotebookPoint, active = true): void {
+        this.resetVerticalNavigation();
+        this.selectionActive = active;
+        this.selection = {
+            anchor: { ...anchor },
+            focus: { ...focus }
+        };
+        this.adapters[focus.noteIndex]?.focus(focus.offset, focus.offset);
+        this.updateSelectionDecorations();
+    }
+
+    selectWordAtClientPosition(x: number, y: number): boolean {
+        return this.selectExpandedRangeAtClientPosition(x, y, "word");
+    }
+
+    selectParagraphAtClientPosition(x: number, y: number): boolean {
+        return this.selectExpandedRangeAtClientPosition(x, y, "paragraph");
+    }
+
     clearSelection(): void {
         if (!this.selection) {
             return;
         }
 
         this.selection = null;
+        this.selectionActive = true;
         this.clearSelectionDecorations();
     }
 
 
     startPointerSelection(point: NotebookPoint): void {
         this.resetVerticalNavigation();
+        this.selectionActive = true;
         this.selection = {
             anchor: { ...point },
             focus: { ...point }
@@ -282,6 +319,35 @@ export class NotebookController {
     }
 
 
+
+    private selectExpandedRangeAtClientPosition(
+        x: number,
+        y: number,
+        granularity: "word" | "paragraph"
+    ): boolean {
+        const index = this.getNoteIndexAtClientPosition(x, y);
+
+        if (index === null) {
+            return false;
+        }
+
+        const adapter = this.adapters[index];
+        const range = granularity === "word"
+            ? adapter.getWordRangeAtPoint?.(x, y)
+            : adapter.getParagraphRangeAtPoint?.(x, y);
+
+        if (!range || range.end <= range.start) {
+            return false;
+        }
+
+        this.selectRange(
+            { noteIndex: index, offset: range.start },
+            { noteIndex: index, offset: range.end }
+        );
+
+        return true;
+    }
+
     private getNoteIndexAtClientPosition(x: number, y: number): number | null {
         if (this.adapters.length === 0) {
             return null;
@@ -484,7 +550,7 @@ export class NotebookController {
             const range = this.getSelectedRangeForNote(index);
 
             if (range) {
-                this.adapters[index].showSelectionRanges([range]);
+                this.adapters[index].showSelectionRanges([range], this.selectionActive);
             } else {
                 this.adapters[index].clearSelectionRanges();
             }

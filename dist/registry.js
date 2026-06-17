@@ -93,6 +93,15 @@ export function parseAnnotationTag(tag, registry = defaultRegistry) {
             priority: registry.get("link")?.priority ?? 0
         };
     }
+    if (isCobaltSelectionOpeningTag(trimmed)) {
+        return {
+            name: "__selection",
+            enabled: true,
+            tag: trimmed,
+            closeTag: createHtmlCloseTag(trimmed),
+            priority: registry.get("__selection")?.priority ?? -100
+        };
+    }
     return null;
 }
 export function createAnnotationTag(name, enabled, registry = defaultRegistry) {
@@ -130,6 +139,9 @@ function isOpeningTag(tag, tagName) {
 }
 function isClosingTag(tag, tagName) {
     return new RegExp(`^</${tagName}(?:\\s[^>]*)?>$`, "i").test(tag);
+}
+function isCobaltSelectionOpeningTag(tag) {
+    return /^<span\s[^>]*data-cobalt-selection=["']true["'][^>]*>$/i.test(tag);
 }
 function shortcutFromKeyboardEvent(event) {
     const parts = [];

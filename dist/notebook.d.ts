@@ -23,17 +23,25 @@ export interface NotebookNoteAdapter {
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
     getOffsetAtPoint(x: number, y: number): number;
+    getWordRangeAtPoint?(x: number, y: number): LocalSelectionRange;
+    getParagraphRangeAtPoint?(x: number, y: number): LocalSelectionRange;
     getClientRect(): DOMRect;
-    showSelectionRanges(ranges: LocalSelectionRange[]): void;
+    showSelectionRanges(ranges: LocalSelectionRange[], active?: boolean): void;
     clearSelectionRanges(): void;
 }
 export declare class NotebookController {
     private adapters;
     private selection;
+    private selectionActive;
     private desiredVerticalX;
     setAdapters(adapters: NotebookNoteAdapter[]): void;
     getSelection(): NotebookSelection | null;
     hasSelection(): boolean;
+    setSelectionActive(active: boolean): void;
+    isSelectionActive(): boolean;
+    selectRange(anchor: NotebookPoint, focus: NotebookPoint, active?: boolean): void;
+    selectWordAtClientPosition(x: number, y: number): boolean;
+    selectParagraphAtClientPosition(x: number, y: number): boolean;
     clearSelection(): void;
     startPointerSelection(point: NotebookPoint): void;
     updatePointerSelection(point: NotebookPoint): void;
@@ -51,6 +59,7 @@ export declare class NotebookController {
     moveRight(index: number, offset: number): boolean;
     moveUp(index: number): boolean;
     moveDown(index: number): boolean;
+    private selectExpandedRangeAtClientPosition;
     private getNoteIndexAtClientPosition;
     private ensureSelection;
     private applyFocusAndDecorations;

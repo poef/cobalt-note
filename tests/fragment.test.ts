@@ -181,7 +181,7 @@ describe("fragment joining", () => {
 
         const result = joinFragments(first, second);
 
-        expect(result.joinOffset).toBe(5);
+        expect(result.joinOffset).toBe(6);
         expect(result.fragment.text).toBe("hello\nworld");
         expect(result.fragment.annotations).toEqual([
             { range: [0, 5], tag: "<strong>", order: 1 },
@@ -209,7 +209,7 @@ describe("fragment joining", () => {
             { text: "\nworld", annotations: [] }
         );
 
-        expect(result.joinOffset).toBe(5);
+        expect(result.joinOffset).toBe(6);
         expect(result.fragment.text).toBe("hello\nworld");
     });
 });
