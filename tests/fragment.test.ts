@@ -160,3 +160,126 @@ describe("fragment splitting", () => {
         ]);
     });
 });
+
+describe("fragment joining", () => {
+    test("joinFragments inserts a newline between non-empty notes", async () => {
+        const { joinFragments } = await import("../src/fragment.js");
+
+        const first: Fragment = {
+            text: "hello",
+            annotations: [
+                { range: [0, 5], tag: "<strong>", order: 1 }
+            ]
+        };
+
+        const second: Fragment = {
+            text: "world",
+            annotations: [
+                { range: [0, 5], tag: "<em>", order: 2 }
+            ]
+        };
+
+        const result = joinFragments(first, second);
+
+        expect(result.joinOffset).toBe(5);
+        expect(result.fragment.text).toBe("hello\nworld");
+        expect(result.fragment.annotations).toEqual([
+            { range: [0, 5], tag: "<strong>", order: 1 },
+            { range: [6, 11], tag: "<em>", order: 2 }
+        ]);
+    });
+
+    test("joinFragments does not add another newline when one already exists", async () => {
+        const { joinFragments } = await import("../src/fragment.js");
+
+        const result = joinFragments(
+            { text: "hello\n", annotations: [] },
+            { text: "world", annotations: [] }
+        );
+
+        expect(result.joinOffset).toBe(6);
+        expect(result.fragment.text).toBe("hello\nworld");
+    });
+
+    test("joinFragments does not add a newline when the second note starts with one", async () => {
+        const { joinFragments } = await import("../src/fragment.js");
+
+        const result = joinFragments(
+            { text: "hello", annotations: [] },
+            { text: "\nworld", annotations: [] }
+        );
+
+        expect(result.joinOffset).toBe(5);
+        expect(result.fragment.text).toBe("hello\nworld");
+    });
+});
+
+describe("annotation coalescing", () => {
+    test("deleteRange merges adjacent annotations with the same tag and order", async () => {
+        const { deleteRange } = await import("../src/fragment.js");
+
+        const fragment: Fragment = {
+            text: "hello\nworld",
+            annotations: [
+                { range: [0, 5], tag: "<em>", order: 1 },
+                { range: [6, 11], tag: "<em>", order: 1 }
+            ]
+        };
+
+        deleteRange(fragment, 5, 6);
+
+        expect(fragment.text).toBe("helloworld");
+        expect(fragment.annotations).toEqual([
+            { range: [0, 10], tag: "<em>", order: 1 }
+        ]);
+    });
+
+    test("deleteRange does not merge adjacent annotations with different order", async () => {
+        const { deleteRange } = await import("../src/fragment.js");
+
+        const fragment: Fragment = {
+            text: "hello\nworld",
+            annotations: [
+                { range: [0, 5], tag: "<em>", order: 1 },
+                { range: [6, 11], tag: "<em>", order: 2 }
+            ]
+        };
+
+        deleteRange(fragment, 5, 6);
+
+        expect(fragment.annotations).toEqual([
+            { range: [0, 5], tag: "<em>", order: 1 },
+            { range: [5, 10], tag: "<em>", order: 2 }
+        ]);
+    });
+
+    test("join then removing the inserted newline restores a split annotation", async () => {
+        const {
+            deleteRange,
+            joinFragments,
+            splitFragment
+        } = await import("../src/fragment.js");
+
+        const original: Fragment = {
+            text: "helloworld",
+            annotations: [
+                { range: [0, 10], tag: "<strong>", order: 1 }
+            ]
+        };
+
+        const split = splitFragment(original, 5);
+        const joined = joinFragments(split.before, split.after).fragment;
+
+        expect(joined.annotations).toEqual([
+            { range: [0, 5], tag: "<strong>", order: 1 },
+            { range: [6, 11], tag: "<strong>", order: 1 }
+        ]);
+
+        deleteRange(joined, 5, 6);
+
+        expect(joined.text).toBe("helloworld");
+        expect(joined.annotations).toEqual([
+            { range: [0, 10], tag: "<strong>", order: 1 }
+        ]);
+    });
+});

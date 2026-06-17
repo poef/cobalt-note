@@ -1,6 +1,13 @@
 import { EditorState } from "./editor-state.js";
 import { Fragment } from "./fragment.js";
-import { getSelectionRange } from "./selection.js";
+import { getSelectionRange, SelectionRange } from "./selection.js";
+export declare const COBALT_JOIN_REQUEST_EVENT = "cobalt:joinrequest";
+export type JoinDirection = "backward" | "forward";
+export interface JoinRequestDetail {
+    direction: JoinDirection;
+    editor: Editor;
+    selection: SelectionRange;
+}
 export interface Editor {
     element: HTMLElement;
     fragment: Fragment;

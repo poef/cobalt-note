@@ -47,6 +47,9 @@
         This page coordinates multiple independent cobalt note editors.
         Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> inside a note to split it
         into two notes and move the cursor to the start of the new next note.
+        Press <kbd>Backspace</kbd> at the start of a note to join it with
+        the previous note, or <kbd>Delete</kbd> at the end to join it with
+        the next note.
     </p>
 
     <p>
@@ -59,7 +62,7 @@
     <pre id="notebook"></pre>
 
     <script type="module">
-        import { edit, splitFragment } from "../dist/index.js";
+        import { COBALT_JOIN_REQUEST_EVENT, edit, joinFragments, splitFragment } from "../dist/index.js";
 
         const notes = [
             {
@@ -113,6 +116,19 @@
                     splitNote(index, selection.start);
                 }, { capture: true });
 
+                element.addEventListener(COBALT_JOIN_REQUEST_EVENT, event => {
+                    const direction = event.detail.direction;
+
+                    if (direction === "backward") {
+                        joinWithPreviousNote(index, event);
+                        return;
+                    }
+
+                    if (direction === "forward") {
+                        joinWithNextNote(index, event);
+                    }
+                });
+
                 editors.push(editor);
             });
 
@@ -134,6 +150,54 @@
             );
 
             renderNotebook(index + 1, 0);
+        }
+
+        function joinWithPreviousNote(index, event) {
+            if (index === 0) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const result = joinFragments(
+                notes[index - 1],
+                notes[index]
+            );
+
+            notes.splice(
+                index - 1,
+                2,
+                result.fragment
+            );
+
+            renderNotebook(
+                index - 1,
+                result.joinOffset
+            );
+        }
+
+        function joinWithNextNote(index, event) {
+            if (index >= notes.length - 1) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const result = joinFragments(
+                notes[index],
+                notes[index + 1]
+            );
+
+            notes.splice(
+                index,
+                2,
+                result.fragment
+            );
+
+            renderNotebook(
+                index,
+                result.joinOffset
+            );
         }
 
         function updateNotebookPreview() {

@@ -4,6 +4,7 @@ import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
 import { getSelectionRange, setSelectionRange } from "./selection.js";
+export const COBALT_JOIN_REQUEST_EVENT = "cobalt:joinrequest";
 export function edit(element, fragment) {
     const state = createEditorState();
     function rerender(start, end) {
@@ -60,6 +61,10 @@ export function edit(element, fragment) {
         if (!selection) {
             return;
         }
+        if (requestNotebookJoin(inputEvent, selection)) {
+            event.preventDefault();
+            return;
+        }
         const commands = buildInputCommands(inputEvent, selection.start, selection.end);
         if (commands.length === 0) {
             return;
@@ -68,6 +73,33 @@ export function edit(element, fragment) {
         applyCommands(fragment, commands);
         const caret = getNextCaretPosition(inputEvent, selection.start, selection.end);
         rerender(caret, caret);
+    }
+    function requestNotebookJoin(event, selection) {
+        if (selection.start !== selection.end) {
+            return false;
+        }
+        let direction = null;
+        if (event.inputType === "deleteContentBackward" &&
+            selection.start === 0) {
+            direction = "backward";
+        }
+        if (event.inputType === "deleteContentForward" &&
+            selection.start === fragment.text.length) {
+            direction = "forward";
+        }
+        if (!direction) {
+            return false;
+        }
+        const joinEvent = new CustomEvent(COBALT_JOIN_REQUEST_EVENT, {
+            bubbles: true,
+            cancelable: true,
+            detail: {
+                direction,
+                editor,
+                selection
+            }
+        });
+        return !element.dispatchEvent(joinEvent);
     }
     function toggleAnnotation(annotation) {
         const selection = getSelectionRange(element);

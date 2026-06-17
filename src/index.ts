@@ -1,7 +1,8 @@
 export type {
     Annotation,
     Fragment,
-    SplitFragmentResult
+    SplitFragmentResult,
+    JoinFragmentsResult
 } from "./fragment.js";
 
 export {
@@ -9,6 +10,7 @@ export {
     deleteRange,
     getNextOrder,
     insertText,
+    joinFragments,
     splitFragment
 } from "./fragment.js";
 
@@ -25,11 +27,14 @@ export type {
 } from "./commands.js";
 
 export {
+    COBALT_JOIN_REQUEST_EVENT,
     edit
 } from "./editor.js";
 
 export type {
-    Editor
+    Editor,
+    JoinDirection,
+    JoinRequestDetail
 } from "./editor.js";
 
 export {

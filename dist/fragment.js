@@ -50,7 +50,7 @@ export function deleteRange(fragment, startOffset, endOffset) {
     fragment.text =
         fragment.text.slice(0, start) +
             fragment.text.slice(end);
-    fragment.annotations = fragment.annotations
+    fragment.annotations = mergeAdjacentMatchingAnnotations(fragment.annotations
         .map(annotation => {
         const [annotationStart, annotationEnd] = annotation.range;
         return {
@@ -61,7 +61,7 @@ export function deleteRange(fragment, startOffset, endOffset) {
             ]
         };
     })
-        .filter(annotation => annotation.range[1] > annotation.range[0]);
+        .filter(annotation => annotation.range[1] > annotation.range[0]));
 }
 export function splitFragment(fragment, offset) {
     const splitOffset = clamp(offset, 0, fragment.text.length);
@@ -93,6 +93,74 @@ export function splitFragment(fragment, offset) {
         }
     }
     return { before, after };
+}
+export function joinFragments(first, second) {
+    const joinOffset = first.text.length;
+    const separator = needsJoinSeparator(first, second)
+        ? "\n"
+        : "";
+    const secondOffset = first.text.length + separator.length;
+    const fragment = {
+        text: first.text + separator + second.text,
+        annotations: mergeAdjacentMatchingAnnotations([
+            ...first.annotations.map(annotation => ({
+                ...annotation,
+                range: [...annotation.range]
+            })),
+            ...second.annotations.map(annotation => ({
+                ...annotation,
+                range: [
+                    annotation.range[0] + secondOffset,
+                    annotation.range[1] + secondOffset
+                ]
+            }))
+        ])
+    };
+    return {
+        fragment,
+        joinOffset
+    };
+}
+export function mergeAdjacentMatchingAnnotations(annotations) {
+    const sorted = [...annotations].sort((a, b) => {
+        if (a.order !== b.order) {
+            return a.order - b.order;
+        }
+        if (a.tag !== b.tag) {
+            return a.tag.localeCompare(b.tag);
+        }
+        if (a.range[0] !== b.range[0]) {
+            return a.range[0] - b.range[0];
+        }
+        return a.range[1] - b.range[1];
+    });
+    const merged = [];
+    for (const annotation of sorted) {
+        const previous = merged[merged.length - 1];
+        if (previous &&
+            previous.order === annotation.order &&
+            previous.tag === annotation.tag &&
+            previous.range[1] === annotation.range[0]) {
+            previous.range = [
+                previous.range[0],
+                annotation.range[1]
+            ];
+        }
+        else {
+            merged.push({
+                ...annotation,
+                range: [...annotation.range]
+            });
+        }
+    }
+    return merged;
+}
+function needsJoinSeparator(first, second) {
+    if (first.text.length === 0 || second.text.length === 0) {
+        return false;
+    }
+    return (!first.text.endsWith("\n") &&
+        !second.text.startsWith("\n"));
 }
 function transformDeletedOffset(offset, deleteStart, deleteEnd) {
     if (offset <= deleteStart) {
