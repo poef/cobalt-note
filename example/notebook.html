@@ -59,8 +59,7 @@
 
     <p>
         Normal <kbd>Enter</kbd> still inserts a line break inside the current note.
-        Hold <kbd>Shift</kbd> while pressing <kbd>ArrowLeft</kbd> or
-        <kbd>ArrowRight</kbd> to extend a visual selection across note boundaries.
+        Hold <kbd>Shift</kbd> while pressing an arrow key to extend a visual selection across note boundaries.
     </p>
 
     <div id="notes"></div>
@@ -126,6 +125,24 @@
                         event.preventDefault();
                         event.stopPropagation();
                         extendNotebookSelection(index, selection.start, "right");
+                        return;
+                    }
+
+                    if (event.shiftKey && event.key === "ArrowUp") {
+                        if (extendNotebookSelectionVertically(index, selection.start, "up")) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+
+                        return;
+                    }
+
+                    if (event.shiftKey && event.key === "ArrowDown") {
+                        if (extendNotebookSelectionVertically(index, selection.start, "down")) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+
                         return;
                     }
 
@@ -261,12 +278,7 @@
         }
 
         function extendNotebookSelection(index, offset, direction) {
-            if (!notebookSelection) {
-                notebookSelection = {
-                    anchor: { noteIndex: index, offset },
-                    focus: { noteIndex: index, offset }
-                };
-            }
+            ensureNotebookSelection(index, offset);
 
             notebookSelection.focus = direction === "left"
                 ? movePointLeft(notebookSelection.focus)
@@ -275,6 +287,97 @@
             const focus = notebookSelection.focus;
             editors[focus.noteIndex]?.focus(focus.offset, focus.offset);
             updateNotebookSelectionDecorations();
+        }
+
+        function extendNotebookSelectionVertically(index, offset, direction) {
+            ensureNotebookSelection(index, offset);
+
+            const focus = notebookSelection.focus;
+            const sourceEditor = editors[focus.noteIndex];
+
+            if (!sourceEditor) {
+                return false;
+            }
+
+            sourceEditor.focus(focus.offset, focus.offset);
+
+            const sourceRect = sourceEditor.getCaretClientRect();
+
+            if (!sourceRect) {
+                return false;
+            }
+
+            if (direction === "up") {
+                if (focus.noteIndex === 0 || !sourceEditor.isCaretOnFirstVisualLine()) {
+                    return false;
+                }
+
+                const targetIndex = focus.noteIndex - 1;
+                const targetRect = editors[targetIndex].getCaretClientRect(
+                    notes[targetIndex].text.length
+                );
+
+                if (!targetRect) {
+                    return false;
+                }
+
+                editors[targetIndex].focusNearestPoint(
+                    sourceRect.left,
+                    getVerticalCenter(targetRect)
+                );
+
+                const targetSelection = editors[targetIndex].getSelection();
+
+                if (!targetSelection) {
+                    return false;
+                }
+
+                notebookSelection.focus = {
+                    noteIndex: targetIndex,
+                    offset: targetSelection.start
+                };
+            } else {
+                if (focus.noteIndex >= notes.length - 1 || !sourceEditor.isCaretOnLastVisualLine()) {
+                    return false;
+                }
+
+                const targetIndex = focus.noteIndex + 1;
+                const targetRect = editors[targetIndex].getCaretClientRect(0);
+
+                if (!targetRect) {
+                    return false;
+                }
+
+                editors[targetIndex].focusNearestPoint(
+                    sourceRect.left,
+                    getVerticalCenter(targetRect)
+                );
+
+                const targetSelection = editors[targetIndex].getSelection();
+
+                if (!targetSelection) {
+                    return false;
+                }
+
+                notebookSelection.focus = {
+                    noteIndex: targetIndex,
+                    offset: targetSelection.start
+                };
+            }
+
+            updateNotebookSelectionDecorations();
+            return true;
+        }
+
+        function ensureNotebookSelection(index, offset) {
+            if (notebookSelection) {
+                return;
+            }
+
+            notebookSelection = {
+                anchor: { noteIndex: index, offset },
+                focus: { noteIndex: index, offset }
+            };
         }
 
         function movePointLeft(point) {
