@@ -9,5 +9,3 @@ export { generateRuns, getEffectiveState, getTypingEffectiveState } from "./runs
 export type { ActiveAnnotation, EffectiveState, Run } from "./runs.js";
 export { AnnotationRegistry, createAnnotationTag, createLinkAnnotationTag, defaultRegistry, parseAnnotationTag } from "./registry.js";
 export { COBALT_CLIPBOARD_MIME, COBALT_NOTEBOOK_CLIPBOARD_MIME, getClipboardFragment, readFragmentFromClipboard, readFragmentsFromClipboard, writeFragmentToClipboard, writeFragmentsToClipboard } from "./clipboard.js";
-export { NotebookController, compareNotebookPoints, getSelectedRangeForNote, orderNotebookSelection } from "./notebook.js";
-export type { LocalSelectionRange, NotebookNoteAdapter, NotebookPoint, NotebookRange, NotebookSelection } from "./notebook.js";

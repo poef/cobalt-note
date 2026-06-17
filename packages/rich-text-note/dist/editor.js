@@ -4,7 +4,7 @@ import { getClipboardFragment, readFragmentFromClipboard, writeFragmentToClipboa
 import { createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
-import { getCaretClientRect, getOffsetAtPoint, getParagraphRangeAtPoint, getSelectionRange, getWordRangeAtPoint, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "./selection.js";
+import { getCaretClientRect, getOffsetAtPoint, getParagraphRangeAtPoint, getSelectionRange, getWordRangeAtPoint, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "@cobalt/note-core";
 function renderDecoratedFragment(fragment, ranges, active = true) {
     if (ranges.length === 0) {
         return render(fragment);

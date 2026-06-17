@@ -1,6 +1,6 @@
 import { EditorState } from "./editor-state.js";
 import { Fragment } from "./fragment.js";
-import { getSelectionRange } from "./selection.js";
+import { getSelectionRange } from "@cobalt/note-core";
 export interface Editor {
     element: HTMLElement;
     fragment: Fragment;

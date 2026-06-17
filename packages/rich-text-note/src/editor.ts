@@ -14,7 +14,7 @@ import {
     isOffsetOnFirstVisualLine,
     isOffsetOnLastVisualLine,
     setSelectionRange
-} from "./selection.js";
+} from "@cobalt/note-core";
 
 export interface Editor {
     element: HTMLElement;

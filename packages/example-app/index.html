@@ -52,8 +52,17 @@
     <h2>Fragment</h2>
     <pre id="fragment"></pre>
 
+    <script type="importmap">
+    {
+      "imports": {
+        "@cobalt/note-core": "../note-core/dist/index.js",
+        "@cobalt/rich-text-note": "../rich-text-note/dist/index.js",
+        "@cobalt/notebook": "../notebook/dist/index.js"
+      }
+    }
+    </script>
     <script type="module">
-        import { edit } from "../dist/index.js";
+        import { edit } from "../rich-text-note/dist/index.js";
 
         const fragment = {
             text: "Hello cobalt note",

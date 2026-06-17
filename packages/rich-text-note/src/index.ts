@@ -27,21 +27,12 @@ export {
     InsertTextCommand
 } from "./commands.js";
 
-export type {
-    Command
-} from "./commands.js";
+export type { Command } from "./commands.js";
 
-export {
-    edit
-} from "./editor.js";
+export { edit } from "./editor.js";
+export type { Editor } from "./editor.js";
 
-export type {
-    Editor
-} from "./editor.js";
-
-export {
-    render
-} from "./render.js";
+export { render } from "./render.js";
 
 export {
     generateRuns,
@@ -72,18 +63,3 @@ export {
     writeFragmentToClipboard,
     writeFragmentsToClipboard
 } from "./clipboard.js";
-
-export {
-    NotebookController,
-    compareNotebookPoints,
-    getSelectedRangeForNote,
-    orderNotebookSelection
-} from "./notebook.js";
-
-export type {
-    LocalSelectionRange,
-    NotebookNoteAdapter,
-    NotebookPoint,
-    NotebookRange,
-    NotebookSelection
-} from "./notebook.js";

@@ -72,9 +72,17 @@
     <h2>Notebook data</h2>
     <pre id="notebook"></pre>
 
+    <script type="importmap">
+    {
+      "imports": {
+        "@cobalt/note-core": "../note-core/dist/index.js",
+        "@cobalt/rich-text-note": "../rich-text-note/dist/index.js",
+        "@cobalt/notebook": "../notebook/dist/index.js"
+      }
+    }
+    </script>
     <script type="module">
         import {
-            NotebookController,
             addAnnotation,
             concatFragments,
             createAnnotationTag,
@@ -90,7 +98,10 @@
             sliceFragment,
             splitFragment,
             writeFragmentsToClipboard
-        } from "../dist/index.js";
+        } from "../rich-text-note/dist/index.js";
+        import {
+            NotebookController
+        } from "../notebook/dist/index.js";
 
         const notes = [
             {

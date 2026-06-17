@@ -1,29 +1,17 @@
 {
-  "name": "cobalt-note",
+  "name": "cobalt-note-monorepo",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "example",
-    "README.md"
+  "workspaces": [
+    "packages/*"
   ],
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch",
-    "clean": "rm -rf dist",
-    "check": "tsc --noEmit",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "build": "tsc -b packages/note-core packages/rich-text-note packages/notebook",
+    "check": "tsc -b --dry false packages/note-core packages/rich-text-note packages/notebook --verbose",
+    "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo",
+    "test": "echo \"Tests will be moved into package-specific suites in the next refactor step.\""
   },
   "devDependencies": {
-    "typescript": "^5.8.0",
-    "@types/jest": "^29.5.14",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "ts-jest": "^29.2.5"
+    "typescript": "^5.8.0"
   }
 }

@@ -1,132 +1,83 @@
-# cobalt-note
+# Cobalt Note
 
-A small contenteditable-based note editor that stores content as plain text plus ordered cobalt annotations.
+Cobalt Note is an experimental notebook-style editor built around small note editors and a notebook controller.
 
-The source tree is intentionally flat:
+This repository is now organized as an npm-workspaces monorepo. The code is still TypeScript in this step; the next migration step is to convert the packages to approachable JavaScript once the package boundaries have settled.
+
+## Packages
 
 ```text
-src/
-  fragment.ts       Core data model and range mutation rules
-  commands.ts       Command wrappers for fragment mutations
-  registry.ts       Annotation registry and tag parsing
-  runs.ts           Effective state evaluation and run generation
-  render.ts         Fragment-to-HTML renderer
-  selection.ts      DOM selection <-> character offset mapping
-  editor-state.ts   Pending annotation state for collapsed selections
-  editor.ts         Main editor controller
-  index.ts          Public exports
+packages/
+  note-core/        Shared low-level DOM/selection/geometry helpers.
+  rich-text-note/   The current Cobalt rich text note editor.
+  notebook/         Generic notebook coordination logic.
+  example-app/      Browser examples using the packages.
 ```
 
-The `design/` folder contains the earlier phase files and design notes.
+### `@cobalt/note-core`
+
+Contains reusable low-level browser helpers that future note types may need:
+
+- DOM selection to text offsets
+- text offsets to DOM selection
+- caret geometry
+- nearest offset lookup from a client coordinate
+- word/paragraph range helpers
+
+This is where complex selection/cursor handling should gradually move so custom note authors do not have to reimplement it.
+
+### `@cobalt/rich-text-note`
+
+Contains the current fragment-based rich text note editor:
+
+- fragments and annotations
+- commands
+- registry
+- rendering
+- clipboard support
+- the `edit(element, fragment)` note editor
+
+### `@cobalt/notebook`
+
+Contains generic notebook coordination logic:
+
+- notebook-level selection
+- cross-note cursor movement
+- cross-note selection decorations
+- pointer selection support
+
+It talks to notes through a `NotebookNoteAdapter`, so future note types do not need to be based on the rich text note editor.
+
+### `@cobalt/example-app`
+
+Contains the current browser examples. The exact key bindings remain here on purpose; the notebook package provides primitives, while the app decides which keys trigger which notebook operations.
 
 ## Build
+
+From the repository root:
 
 ```bash
 npm install
 npm run build
 ```
 
-The TypeScript compiler writes JavaScript, declaration files, and source maps to `dist/`.
+The examples import from the package `dist/` directories, so run the build before opening them.
 
-## Example
-
-After building, open `example/index.html` from a local web server. For example:
+## Run the examples
 
 ```bash
-python3 -m http.server 8080
+cd packages/example-app
+npm run start
 ```
 
-Then visit:
+Then open:
 
-```text
-http://localhost:8080/example/
-```
+- `http://localhost:8080/index.html`
+- `http://localhost:8080/notebook.html`
 
-There is also a minimal notebook demo that renders multiple independent note editors and coordinates note splitting with Ctrl+Enter:
+## Next planned refactors
 
-```text
-http://localhost:8080/example/notebook.html
-```
-
-The example creates a single cobalt editor instance and shows the live fragment JSON below it.
-
-
-Links are created with Ctrl+K on a non-empty selection. Ctrl+K prompts for a URL and appends an `<a href="...">` annotation for the selected range. Links are not part of pending annotation state for collapsed selections.
-
-Annotation definitions live in the registry. A definition may set `supportsPending: true` to allow collapsed-selection shortcuts to create a one-shot pending annotation for the next inserted text. The built-in `strong`, `em`, and `underline` annotations support pending state; `link` does not.
-
-## Whitespace and line breaks
-
-Cobalt uses character offsets as its editor coordinate system. The editor host should preserve whitespace so visual caret movement matches the stored text:
-
-```css
-.cobalt-editor {
-    white-space: pre-wrap;
-}
-```
-
-Pressing Enter inserts a newline character (`\n`) into the fragment text. If the caret is exactly at the end boundary of an annotation, that annotation does not grow across the newline. If the caret is inside an annotation, the annotation remains intact and includes the newline.
-
-
-## Notebook coordination
-
-A single cobalt editor only owns one fragment. It does not know about sibling notes. For notebook-style applications, handle notebook-level shortcuts in the parent application and use the editor API to read the current selection.
-
-```ts
-const editor = edit(element, fragment);
-
-element.addEventListener("keydown", event => {
-    if (event.key !== "Enter" || !event.ctrlKey) {
-        return;
-    }
-
-    const selection = editor.getSelection();
-
-    if (!selection) {
-        return;
-    }
-
-    event.preventDefault();
-
-    const { before, after } = splitFragment(fragment, selection.start);
-    // Replace the current note with before/after in your notebook model.
-});
-```
-
-In the example notebook, Ctrl+Enter is handled by the notebook application. The parent splits the current fragment at the cursor offset, replaces the note with two notes, and focuses the new next note at offset 0. Normal Enter still inserts a newline inside the current note.
-
-Notebook applications can also join notes. In the example notebook, Backspace at offset 0 joins with the previous note, and Delete at the end of a note joins with the next note. This is handled by the notebook application in the capture phase, not by the editor itself.
-
-```ts
-import { edit, joinFragments } from "cobalt-note";
-
-const editor = edit(element, fragment);
-
-element.addEventListener("keydown", event => {
-    const selection = editor.getSelection();
-
-    if (!selection || selection.start !== selection.end) {
-        return;
-    }
-
-    if (event.key === "Backspace" && selection.start === 0) {
-        event.preventDefault();
-        // Join this note with the previous note in your notebook model.
-    }
-
-    if (event.key === "Delete" && selection.start === fragment.text.length) {
-        event.preventDefault();
-        // Join this note with the next note in your notebook model.
-    }
-}, true);
-```
-
-`joinFragments(first, second)` returns a joined fragment and the original end offset of `first`, which is the natural caret position after joining. It inserts one newline between fragments unless the boundary already contains one. Adjacent annotations with the same `tag` and `order` are merged again after joining.
-
-### Cross-note visual selection
-
-The notebook demo also contains an experimental notebook-level selection model. Holding Shift while pressing ArrowLeft or ArrowRight extends a logical selection across note boundaries. The notebook stores the selection as `{ anchor, focus }` points with note indexes and offsets, then asks each editor to render temporary visual selection decorations for its local selected range.
-
-The editor remains a single-note component. It does not know about sibling notes; it only exposes `showSelectionRanges()` and `clearSelectionRanges()` so the parent application can draw notebook-level selections without changing the underlying fragment.
-
-Cross-note delete/copy/cut/paste is intentionally left as a later step.
+1. Extract more generic helpers into `@cobalt/note-core`.
+2. Clarify and document the `NotebookNoteAdapter` contract.
+3. Add a second simple note type to test whether the adapter is generic enough.
+4. Convert packages from TypeScript to simple JavaScript with JSDoc for public APIs.
