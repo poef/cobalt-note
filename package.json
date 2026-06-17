@@ -9,9 +9,11 @@
     "build": "tsc -b packages/note-core packages/rich-text-note packages/notebook",
     "check": "tsc -b --dry false packages/note-core packages/rich-text-note packages/notebook --verbose",
     "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo",
-    "test": "echo \"Tests will be moved into package-specific suites in the next refactor step.\""
+    "test": "npm run build && vitest run && node --test packages/notebook/test/*.test.mjs"
   },
   "devDependencies": {
-    "typescript": "^5.8.0"
+    "jsdom": "^29.1.1",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.9"
   }
 }

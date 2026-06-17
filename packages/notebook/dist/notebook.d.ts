@@ -26,6 +26,16 @@ export interface NotebookNoteMergeResult {
     fragment: NotebookNoteFragment;
     joinOffset: number;
 }
+export interface NotebookJoinResult {
+    /** Index of the note that receives the merged content. */
+    noteIndex: number;
+    /** Index of the note that should be removed by the application. */
+    removeNoteIndex: number;
+    /** Opaque merged fragment returned by the target note implementation. */
+    fragment: NotebookNoteFragment;
+    /** Cursor position to restore after the application updates its note list. */
+    focus: NotebookPoint;
+}
 export interface NotebookNoteAdapter {
     getType(): string;
     getValue(): unknown;
@@ -86,6 +96,8 @@ export declare class NotebookController {
     moveLeft(index: number, offset: number): boolean;
     moveRight(index: number, offset: number): boolean;
     moveUp(index: number): boolean;
+    joinWithPrevious(index: number): NotebookJoinResult | null;
+    joinWithNext(index: number, focusOffset?: number): NotebookJoinResult | null;
     moveDown(index: number): boolean;
     private selectExpandedRangeAtClientPosition;
     private getNoteIndexAtClientPosition;

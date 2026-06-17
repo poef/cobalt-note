@@ -433,7 +433,7 @@
 
                 event.preventDefault();
                 event.stopPropagation();
-                joinWithNextNote(index);
+                joinWithNextNote(index, selection.start);
                 return;
             }
 
@@ -800,65 +800,30 @@
         }
 
         function joinWithPreviousNote(index) {
-            if (index === 0) {
-                return;
-            }
-
-            const target = editors[index - 1];
-            const source = editors[index];
-            const sourceFragment = source.sliceFragment(0, source.getLength());
-
-            if (!target.canMergeFragment(sourceFragment, "after")) {
-                return;
-            }
-
-            const result = target.mergeFragment(sourceFragment, "after");
-
-            if (!result) {
-                return;
-            }
-
-            notes.splice(
-                index - 1,
-                2,
-                result.fragment.data
-            );
-
-            renderNotebook(
-                index - 1,
-                result.joinOffset
-            );
+            applyNotebookJoin(notebook.joinWithPrevious(index));
         }
 
-        function joinWithNextNote(index) {
-            if (index >= notes.length - 1) {
-                return;
-            }
+        function joinWithNextNote(index, offset) {
+            applyNotebookJoin(notebook.joinWithNext(index, offset));
+        }
 
-            const target = editors[index];
-            const source = editors[index + 1];
-            const caretOffset = target.getLength();
-            const sourceFragment = source.sliceFragment(0, source.getLength());
-
-            if (!target.canMergeFragment(sourceFragment, "after")) {
-                return;
-            }
-
-            const result = target.mergeFragment(sourceFragment, "after");
-
+        function applyNotebookJoin(result) {
             if (!result) {
                 return;
             }
 
+            const deleteCount = Math.abs(result.removeNoteIndex - result.noteIndex) + 1;
+            const spliceIndex = Math.min(result.noteIndex, result.removeNoteIndex);
+
             notes.splice(
-                index,
-                2,
+                spliceIndex,
+                deleteCount,
                 result.fragment.data
             );
 
             renderNotebook(
-                index,
-                caretOffset
+                result.focus.noteIndex,
+                result.focus.offset
             );
         }
 

@@ -8,6 +8,7 @@ export {
 export type {
     LocalSelectionRange,
     NotebookNoteAdapter,
+    NotebookJoinResult,
     NotebookNoteFragment,
     NotebookNoteMergeResult,
     NotebookPoint,

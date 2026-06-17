@@ -177,6 +177,65 @@ export class NotebookController {
         this.adapters[targetIndex]?.focusNearestPoint(x, getVerticalCenter(targetRect));
         return true;
     }
+    joinWithPrevious(index) {
+        this.resetVerticalNavigation();
+        if (index <= 0 || index >= this.adapters.length) {
+            return null;
+        }
+        const targetIndex = index - 1;
+        const source = this.adapters[index];
+        const target = this.adapters[targetIndex];
+        if (!source || !target) {
+            return null;
+        }
+        const sourceFragment = source.sliceFragment(0, source.getLength());
+        if (!target.canMergeFragment(sourceFragment, "after")) {
+            return null;
+        }
+        const result = target.mergeFragment(sourceFragment, "after");
+        if (!result) {
+            return null;
+        }
+        this.clearSelection();
+        return {
+            noteIndex: targetIndex,
+            removeNoteIndex: index,
+            fragment: result.fragment,
+            focus: {
+                noteIndex: targetIndex,
+                offset: result.joinOffset
+            }
+        };
+    }
+    joinWithNext(index, focusOffset = this.getNoteLength(index)) {
+        this.resetVerticalNavigation();
+        if (index < 0 || index >= this.adapters.length - 1) {
+            return null;
+        }
+        const target = this.adapters[index];
+        const source = this.adapters[index + 1];
+        if (!source || !target) {
+            return null;
+        }
+        const sourceFragment = source.sliceFragment(0, source.getLength());
+        if (!target.canMergeFragment(sourceFragment, "after")) {
+            return null;
+        }
+        const result = target.mergeFragment(sourceFragment, "after");
+        if (!result) {
+            return null;
+        }
+        this.clearSelection();
+        return {
+            noteIndex: index,
+            removeNoteIndex: index + 1,
+            fragment: result.fragment,
+            focus: {
+                noteIndex: index,
+                offset: focusOffset
+            }
+        };
+    }
     moveDown(index) {
         const source = this.adapters[index];
         if (!source) {

@@ -32,6 +32,17 @@ export interface NotebookNoteMergeResult {
     joinOffset: number;
 }
 
+export interface NotebookJoinResult {
+    /** Index of the note that receives the merged content. */
+    noteIndex: number;
+    /** Index of the note that should be removed by the application. */
+    removeNoteIndex: number;
+    /** Opaque merged fragment returned by the target note implementation. */
+    fragment: NotebookNoteFragment;
+    /** Cursor position to restore after the application updates its note list. */
+    focus: NotebookPoint;
+}
+
 export interface NotebookNoteAdapter {
     getType(): string;
     getValue(): unknown;
@@ -305,6 +316,85 @@ export class NotebookController {
         );
 
         return true;
+    }
+
+    joinWithPrevious(index: number): NotebookJoinResult | null {
+        this.resetVerticalNavigation();
+
+        if (index <= 0 || index >= this.adapters.length) {
+            return null;
+        }
+
+        const targetIndex = index - 1;
+        const source = this.adapters[index];
+        const target = this.adapters[targetIndex];
+
+        if (!source || !target) {
+            return null;
+        }
+
+        const sourceFragment = source.sliceFragment(0, source.getLength());
+
+        if (!target.canMergeFragment(sourceFragment, "after")) {
+            return null;
+        }
+
+        const result = target.mergeFragment(sourceFragment, "after");
+
+        if (!result) {
+            return null;
+        }
+
+        this.clearSelection();
+
+        return {
+            noteIndex: targetIndex,
+            removeNoteIndex: index,
+            fragment: result.fragment,
+            focus: {
+                noteIndex: targetIndex,
+                offset: result.joinOffset
+            }
+        };
+    }
+
+    joinWithNext(index: number, focusOffset = this.getNoteLength(index)): NotebookJoinResult | null {
+        this.resetVerticalNavigation();
+
+        if (index < 0 || index >= this.adapters.length - 1) {
+            return null;
+        }
+
+        const target = this.adapters[index];
+        const source = this.adapters[index + 1];
+
+        if (!source || !target) {
+            return null;
+        }
+
+        const sourceFragment = source.sliceFragment(0, source.getLength());
+
+        if (!target.canMergeFragment(sourceFragment, "after")) {
+            return null;
+        }
+
+        const result = target.mergeFragment(sourceFragment, "after");
+
+        if (!result) {
+            return null;
+        }
+
+        this.clearSelection();
+
+        return {
+            noteIndex: index,
+            removeNoteIndex: index + 1,
+            fragment: result.fragment,
+            focus: {
+                noteIndex: index,
+                offset: focusOffset
+            }
+        };
     }
 
     moveDown(index: number): boolean {
