@@ -87,6 +87,10 @@ export function editCodeNote(element, value, options = {}) {
         showSelectionRanges(ranges) {
             selectionDecorationRanges = ranges.filter(range => range.end > range.start);
             const first = selectionDecorationRanges[0];
+            // Native textarea selection cannot be painted independently from the
+            // browser selection, so code-note can only show the local part of a
+            // notebook selection when the textarea itself is focused. Cross-note
+            // selection still works logically through notebook offsets.
             if (first && document.activeElement === element) {
                 setTextareaSelection(element, first.start, first.end);
             }

@@ -1,8 +1,4 @@
 {
   "name": "@cobalt/notebook",
-  "version": "0.1.0",
-  "dependencies": {
-    "@cobalt/note-core": "0.1.0",
-    "@cobalt/rich-text-note": "0.1.0"
-  }
+  "version": "0.1.0"
 }
