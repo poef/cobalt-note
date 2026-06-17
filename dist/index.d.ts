@@ -8,6 +8,6 @@ export { render } from "./render.js";
 export { generateRuns, getEffectiveState, getTypingEffectiveState } from "./runs.js";
 export type { ActiveAnnotation, EffectiveState, Run } from "./runs.js";
 export { AnnotationRegistry, createAnnotationTag, createLinkAnnotationTag, defaultRegistry, parseAnnotationTag } from "./registry.js";
-export { COBALT_CLIPBOARD_MIME, getClipboardFragment, readFragmentFromClipboard, writeFragmentToClipboard } from "./clipboard.js";
+export { COBALT_CLIPBOARD_MIME, COBALT_NOTEBOOK_CLIPBOARD_MIME, getClipboardFragment, readFragmentFromClipboard, readFragmentsFromClipboard, writeFragmentToClipboard, writeFragmentsToClipboard } from "./clipboard.js";
 export { NotebookController, compareNotebookPoints, getSelectedRangeForNote, orderNotebookSelection } from "./notebook.js";
 export type { LocalSelectionRange, NotebookNoteAdapter, NotebookPoint, NotebookRange, NotebookSelection } from "./notebook.js";

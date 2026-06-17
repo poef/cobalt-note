@@ -1,6 +1,7 @@
 import { Fragment, sliceFragment } from "./fragment.js";
 
 export const COBALT_CLIPBOARD_MIME = "application/x-cobalt-fragment+json";
+export const COBALT_NOTEBOOK_CLIPBOARD_MIME = "application/x-cobalt-notebook-fragments+json";
 
 export function writeFragmentToClipboard(
     clipboardData: DataTransfer,
@@ -11,6 +12,30 @@ export function writeFragmentToClipboard(
         COBALT_CLIPBOARD_MIME,
         JSON.stringify(fragment)
     );
+}
+
+export function writeFragmentsToClipboard(
+    clipboardData: DataTransfer,
+    fragments: Fragment[]
+): void {
+    const normalized = fragments.map(normalizeClipboardFragment);
+
+    clipboardData.setData(
+        "text/plain",
+        normalized.map(fragment => fragment.text).join("\n")
+    );
+
+    clipboardData.setData(
+        COBALT_NOTEBOOK_CLIPBOARD_MIME,
+        JSON.stringify({ fragments: normalized })
+    );
+
+    if (normalized.length === 1) {
+        clipboardData.setData(
+            COBALT_CLIPBOARD_MIME,
+            JSON.stringify(normalized[0])
+        );
+    }
 }
 
 export function readFragmentFromClipboard(
@@ -28,6 +53,28 @@ export function readFragmentFromClipboard(
         text: clipboardData.getData("text/plain"),
         annotations: []
     };
+}
+
+export function readFragmentsFromClipboard(
+    clipboardData: DataTransfer
+): Fragment[] {
+    const serialized = clipboardData.getData(COBALT_NOTEBOOK_CLIPBOARD_MIME);
+
+    if (serialized) {
+        const parsed = JSON.parse(serialized) as { fragments?: unknown };
+
+        if (Array.isArray(parsed.fragments)) {
+            return parsed.fragments
+                .map(fragment => normalizeClipboardFragment(fragment as Fragment))
+                .filter(fragment => fragment.text.length > 0);
+        }
+    }
+
+    const fragment = readFragmentFromClipboard(clipboardData);
+
+    return fragment.text.length > 0
+        ? [fragment]
+        : [];
 }
 
 export function getClipboardFragment(

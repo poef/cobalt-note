@@ -82,11 +82,14 @@
             defaultRegistry,
             deleteRange,
             edit,
+            insertFragment,
             insertText,
             joinFragments,
             getEffectiveState,
+            readFragmentsFromClipboard,
             sliceFragment,
-            splitFragment
+            splitFragment,
+            writeFragmentsToClipboard
         } from "../dist/index.js";
 
         const notes = [
@@ -135,6 +138,18 @@
 
                 element.addEventListener("beforeinput", event => {
                     handleNotebookBeforeInput(event);
+                }, { capture: true });
+
+                element.addEventListener("copy", event => {
+                    handleNotebookCopy(event);
+                }, { capture: true });
+
+                element.addEventListener("cut", event => {
+                    handleNotebookCut(event);
+                }, { capture: true });
+
+                element.addEventListener("paste", event => {
+                    handleNotebookPaste(event);
                 }, { capture: true });
 
                 element.addEventListener("mousedown", event => {
@@ -382,7 +397,13 @@
                 return;
             }
 
-            if (!event.shiftKey && isNavigationOrEditingKey(event)) {
+            if (
+                !event.shiftKey &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.altKey &&
+                isNavigationOrEditingKey(event)
+            ) {
                 notebook.clearSelection();
             }
 
@@ -571,6 +592,162 @@
                 noteIndex: start.noteIndex,
                 offset: start.offset
             };
+        }
+
+        function handleNotebookCopy(event) {
+            if (!notebook.hasSelection() || !event.clipboardData) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            writeFragmentsToClipboard(
+                event.clipboardData,
+                getNotebookSelectionFragments()
+            );
+        }
+
+        function handleNotebookCut(event) {
+            if (!notebook.hasSelection() || !event.clipboardData) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            writeFragmentsToClipboard(
+                event.clipboardData,
+                getNotebookSelectionFragments()
+            );
+
+            const position = removeNotebookSelection();
+
+            if (position) {
+                renderNotebook(position.noteIndex, position.offset);
+            }
+        }
+
+        function handleNotebookPaste(event) {
+            if (!notebook.hasSelection() || !event.clipboardData) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const fragments = readFragmentsFromClipboard(event.clipboardData);
+
+            const position = removeNotebookSelection();
+
+            if (!position) {
+                return;
+            }
+
+            const focus = insertFragmentsAtNotebookPosition(
+                position.noteIndex,
+                position.offset,
+                fragments
+            );
+
+            renderNotebook(focus.noteIndex, focus.offset);
+        }
+
+        function getNotebookSelectionFragments() {
+            const ordered = notebook.getOrderedSelection();
+
+            if (!ordered) {
+                return [];
+            }
+
+            const fragments = [];
+
+            for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
+                const range = notebook.getSelectedRangeForNote(index);
+
+                if (!range || range.end <= range.start) {
+                    continue;
+                }
+
+                fragments.push(
+                    sliceFragment(
+                        notes[index],
+                        range.start,
+                        range.end
+                    )
+                );
+            }
+
+            return fragments;
+        }
+
+        function insertFragmentsAtNotebookPosition(noteIndex, offset, fragments) {
+            if (fragments.length === 0) {
+                return {
+                    noteIndex,
+                    offset
+                };
+            }
+
+            if (fragments.length === 1) {
+                insertFragment(
+                    notes[noteIndex],
+                    offset,
+                    fragments[0]
+                );
+
+                return {
+                    noteIndex,
+                    offset: offset + fragments[0].text.length
+                };
+            }
+
+            const current = notes[noteIndex];
+            const prefix = sliceFragment(current, 0, offset);
+            const suffix = sliceFragment(current, offset, current.text.length);
+
+            const inserted = fragments.map(fragment => ({
+                text: fragment.text,
+                annotations: fragment.annotations.map(annotation => ({
+                    ...annotation,
+                    range: [...annotation.range]
+                }))
+            }));
+
+            const first = {
+                text: prefix.text,
+                annotations: prefix.annotations.map(annotation => ({
+                    ...annotation,
+                    range: [...annotation.range]
+                }))
+            };
+
+            insertFragment(first, first.text.length, inserted[0]);
+
+            const last = {
+                text: inserted[inserted.length - 1].text,
+                annotations: inserted[inserted.length - 1].annotations.map(annotation => ({
+                    ...annotation,
+                    range: [...annotation.range]
+                }))
+            };
+
+            const focus = {
+                noteIndex: noteIndex + inserted.length - 1,
+                offset: last.text.length
+            };
+
+            insertFragment(last, last.text.length, suffix);
+
+            notes.splice(
+                noteIndex,
+                1,
+                first,
+                ...inserted.slice(1, -1),
+                last
+            );
+
+            return focus;
         }
 
         function handleNotebookBeforeInput(event) {

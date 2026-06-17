@@ -65,9 +65,12 @@ export {
 
 export {
     COBALT_CLIPBOARD_MIME,
+    COBALT_NOTEBOOK_CLIPBOARD_MIME,
     getClipboardFragment,
     readFragmentFromClipboard,
-    writeFragmentToClipboard
+    readFragmentsFromClipboard,
+    writeFragmentToClipboard,
+    writeFragmentsToClipboard
 } from "./clipboard.js";
 
 export {
