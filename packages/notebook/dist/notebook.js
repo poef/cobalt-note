@@ -236,6 +236,49 @@ export class NotebookController {
             }
         };
     }
+    deleteSelection() {
+        this.resetVerticalNavigation();
+        const ordered = this.getOrderedSelection();
+        if (!ordered) {
+            return null;
+        }
+        const { start, end } = ordered;
+        if (compareNotebookPoints(start, end) === 0) {
+            this.clearSelection();
+            return null;
+        }
+        const target = this.adapters[start.noteIndex];
+        if (!target) {
+            return null;
+        }
+        if (start.noteIndex === end.noteIndex) {
+            target.deleteRange(start.offset, end.offset);
+            this.clearSelection();
+            return {
+                focus: { ...start }
+            };
+        }
+        const source = this.adapters[end.noteIndex];
+        if (!source) {
+            return null;
+        }
+        const suffix = source.sliceFragment(end.offset, source.getLength());
+        if (!target.canInsertFragment(suffix)) {
+            return null;
+        }
+        target.deleteRange(start.offset, target.getLength());
+        target.insertFragment(start.offset, suffix);
+        const fragment = target.sliceFragment(0, target.getLength());
+        this.clearSelection();
+        return {
+            focus: { ...start },
+            replacement: {
+                noteIndex: start.noteIndex,
+                removeNoteIndex: end.noteIndex,
+                fragment
+            }
+        };
+    }
     moveDown(index) {
         const source = this.adapters[index];
         if (!source) {

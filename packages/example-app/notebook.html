@@ -531,13 +531,14 @@
         }
 
         function deleteNotebookSelection() {
-            const position = removeNotebookSelection();
+            const result = notebook.deleteSelection();
 
-            if (!position) {
+            if (!result) {
                 return;
             }
 
-            renderNotebook(position.noteIndex, position.offset);
+            applyNotebookReplacement(result.replacement);
+            renderNotebook(result.focus.noteIndex, result.focus.offset);
         }
 
         function removeNotebookSelection() {
@@ -812,18 +813,26 @@
                 return;
             }
 
-            const deleteCount = Math.abs(result.removeNoteIndex - result.noteIndex) + 1;
-            const spliceIndex = Math.min(result.noteIndex, result.removeNoteIndex);
-
-            notes.splice(
-                spliceIndex,
-                deleteCount,
-                result.fragment.data
-            );
+            applyNotebookReplacement(result);
 
             renderNotebook(
                 result.focus.noteIndex,
                 result.focus.offset
+            );
+        }
+
+        function applyNotebookReplacement(replacement) {
+            if (!replacement) {
+                return;
+            }
+
+            const deleteCount = Math.abs(replacement.removeNoteIndex - replacement.noteIndex) + 1;
+            const spliceIndex = Math.min(replacement.noteIndex, replacement.removeNoteIndex);
+
+            notes.splice(
+                spliceIndex,
+                deleteCount,
+                replacement.fragment.data
             );
         }
 

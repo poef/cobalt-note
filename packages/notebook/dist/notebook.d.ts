@@ -36,6 +36,19 @@ export interface NotebookJoinResult {
     /** Cursor position to restore after the application updates its note list. */
     focus: NotebookPoint;
 }
+export interface NotebookDeleteSelectionResult {
+    /** Cursor position where the selection collapsed. */
+    focus: NotebookPoint;
+    /**
+     * Replacement for cross-note deletes. When omitted, the target note
+     * adapter already handled a local delete in-place.
+     */
+    replacement?: {
+        noteIndex: number;
+        removeNoteIndex: number;
+        fragment: NotebookNoteFragment;
+    };
+}
 export interface NotebookNoteAdapter {
     getType(): string;
     getValue(): unknown;
@@ -98,6 +111,7 @@ export declare class NotebookController {
     moveUp(index: number): boolean;
     joinWithPrevious(index: number): NotebookJoinResult | null;
     joinWithNext(index: number, focusOffset?: number): NotebookJoinResult | null;
+    deleteSelection(): NotebookDeleteSelectionResult | null;
     moveDown(index: number): boolean;
     private selectExpandedRangeAtClientPosition;
     private getNoteIndexAtClientPosition;
