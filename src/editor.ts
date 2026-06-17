@@ -4,7 +4,14 @@ import { Fragment } from "./fragment.js";
 import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
-import { getSelectionRange, SelectionRange, setSelectionRange } from "./selection.js";
+import {
+    getCaretClientRect,
+    getOffsetAtPoint,
+    getSelectionRange,
+    isOffsetOnFirstVisualLine,
+    isOffsetOnLastVisualLine,
+    setSelectionRange
+} from "./selection.js";
 
 export interface Editor {
     element: HTMLElement;
@@ -12,6 +19,10 @@ export interface Editor {
     state: EditorState;
     focus(start?: number, end?: number): void;
     getSelection(): ReturnType<typeof getSelectionRange>;
+    getCaretClientRect(offset?: number): DOMRect | null;
+    isCaretOnFirstVisualLine(): boolean;
+    isCaretOnLastVisualLine(): boolean;
+    focusNearestPoint(x: number, y: number): void;
     destroy(): void;
 }
 
@@ -45,6 +56,46 @@ export function edit(
         },
         getSelection() {
             return getSelectionRange(element);
+        },
+        getCaretClientRect(offset?: number): DOMRect | null {
+            if (offset !== undefined) {
+                return getCaretClientRect(element, offset);
+            }
+
+            const selection = getSelectionRange(element);
+
+            if (!selection || selection.start !== selection.end) {
+                return null;
+            }
+
+            return getCaretClientRect(element, selection.start);
+        },
+        isCaretOnFirstVisualLine(): boolean {
+            const selection = getSelectionRange(element);
+
+            if (!selection || selection.start !== selection.end) {
+                return false;
+            }
+
+            return isOffsetOnFirstVisualLine(element, selection.start);
+        },
+        isCaretOnLastVisualLine(): boolean {
+            const selection = getSelectionRange(element);
+
+            if (!selection || selection.start !== selection.end) {
+                return false;
+            }
+
+            return isOffsetOnLastVisualLine(
+                element,
+                selection.start,
+                fragment.text.length
+            );
+        },
+        focusNearestPoint(x: number, y: number): void {
+            const offset = getOffsetAtPoint(element, x, y);
+
+            this.focus(offset, offset);
         },
         destroy(): void {
             element.removeEventListener("keydown", handleKeyDown);

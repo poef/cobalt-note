@@ -71,6 +71,94 @@ export function setSelectionRange(root, start, end) {
     selection.addRange(range);
     return true;
 }
+export function getCaretClientRect(root, offset) {
+    const position = getDomPosition(root, offset);
+    const range = document.createRange();
+    range.setStart(position.node, position.offset);
+    range.collapse(true);
+    const rect = firstRect(range);
+    if (rect) {
+        return rect;
+    }
+    return getMarkerRect(root, range);
+}
+export function getCurrentCaretClientRect(root) {
+    const selection = getSelectionRange(root);
+    if (!selection || selection.start !== selection.end) {
+        return null;
+    }
+    return getCaretClientRect(root, selection.start);
+}
+export function isOffsetOnFirstVisualLine(root, offset, tolerance = 3) {
+    const current = getCaretClientRect(root, offset);
+    const first = getCaretClientRect(root, 0);
+    if (!current || !first) {
+        return false;
+    }
+    return current.top <= first.top + tolerance;
+}
+export function isOffsetOnLastVisualLine(root, offset, textLength, tolerance = 3) {
+    const current = getCaretClientRect(root, offset);
+    const last = getCaretClientRect(root, textLength);
+    if (!current || !last) {
+        return false;
+    }
+    return current.bottom >= last.bottom - tolerance;
+}
+export function getOffsetAtPoint(root, x, y) {
+    const position = getDomPositionFromPoint(x, y);
+    if (!position || !root.contains(position.node)) {
+        return getNearestBoundaryOffset(root, y);
+    }
+    return getOffset(root, position.node, position.offset);
+}
+function getDomPositionFromPoint(x, y) {
+    const doc = document;
+    if (doc.caretPositionFromPoint) {
+        const position = doc.caretPositionFromPoint(x, y);
+        if (position) {
+            return {
+                node: position.offsetNode,
+                offset: position.offset
+            };
+        }
+    }
+    if (doc.caretRangeFromPoint) {
+        const range = doc.caretRangeFromPoint(x, y);
+        if (range) {
+            return {
+                node: range.startContainer,
+                offset: range.startOffset
+            };
+        }
+    }
+    return null;
+}
+function getNearestBoundaryOffset(root, y) {
+    const rect = root.getBoundingClientRect();
+    if (y <= rect.top) {
+        return 0;
+    }
+    return getTextLength(root);
+}
+function firstRect(range) {
+    const rects = Array.from(range.getClientRects());
+    return rects.length > 0
+        ? rects[0]
+        : null;
+}
+function getMarkerRect(root, range) {
+    const marker = document.createElement("span");
+    marker.setAttribute("data-cobalt-caret-marker", "true");
+    marker.textContent = "\u200B";
+    range.insertNode(marker);
+    const rect = marker.getBoundingClientRect();
+    marker.remove();
+    root.normalize();
+    return rect.width === 0 && rect.height === 0
+        ? null
+        : rect;
+}
 function getOffsetFromPosition(root, targetNode, targetOffset) {
     let offset = 0;
     let found = false;

@@ -49,7 +49,7 @@
         into two notes and move the cursor to the start of the new next note.
         Press <kbd>Backspace</kbd> at the start of a note to join it with
         the previous note, or <kbd>Delete</kbd> at the end to join it with
-        the next note.
+        the next note. Arrow keys also move between notes at note boundaries.
     </p>
 
     <p>
@@ -137,6 +137,70 @@
                         event.preventDefault();
                         event.stopPropagation();
                         joinWithNextNote(index);
+                        return;
+                    }
+
+                    if (event.key === "ArrowLeft" && selection.start === 0) {
+                        if (index === 0) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        editors[index - 1].focus(notes[index - 1].text.length);
+                        return;
+                    }
+
+                    if (event.key === "ArrowRight" && selection.start === fragment.text.length) {
+                        if (index >= notes.length - 1) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        editors[index + 1].focus(0);
+                        return;
+                    }
+
+                    if (event.key === "ArrowUp" && editor.isCaretOnFirstVisualLine()) {
+                        if (index === 0) {
+                            return;
+                        }
+
+                        const rect = editor.getCaretClientRect();
+                        const targetRect = editors[index - 1].element.getBoundingClientRect();
+
+                        if (!rect) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        editors[index - 1].focusNearestPoint(
+                            rect.left,
+                            targetRect.bottom - 1
+                        );
+                        return;
+                    }
+
+                    if (event.key === "ArrowDown" && editor.isCaretOnLastVisualLine()) {
+                        if (index >= notes.length - 1) {
+                            return;
+                        }
+
+                        const rect = editor.getCaretClientRect();
+                        const targetRect = editors[index + 1].element.getBoundingClientRect();
+
+                        if (!rect) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        editors[index + 1].focusNearestPoint(
+                            rect.left,
+                            targetRect.top + 1
+                        );
                     }
                 }, { capture: true });
 

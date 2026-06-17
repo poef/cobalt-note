@@ -3,7 +3,7 @@ import { createEditorState, buildPendingAnnotations, clearPendingAnnotations } f
 import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
-import { getSelectionRange, setSelectionRange } from "./selection.js";
+import { getCaretClientRect, getOffsetAtPoint, getSelectionRange, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "./selection.js";
 export function edit(element, fragment) {
     const state = createEditorState();
     function rerender(start, end) {
@@ -23,6 +23,34 @@ export function edit(element, fragment) {
         },
         getSelection() {
             return getSelectionRange(element);
+        },
+        getCaretClientRect(offset) {
+            if (offset !== undefined) {
+                return getCaretClientRect(element, offset);
+            }
+            const selection = getSelectionRange(element);
+            if (!selection || selection.start !== selection.end) {
+                return null;
+            }
+            return getCaretClientRect(element, selection.start);
+        },
+        isCaretOnFirstVisualLine() {
+            const selection = getSelectionRange(element);
+            if (!selection || selection.start !== selection.end) {
+                return false;
+            }
+            return isOffsetOnFirstVisualLine(element, selection.start);
+        },
+        isCaretOnLastVisualLine() {
+            const selection = getSelectionRange(element);
+            if (!selection || selection.start !== selection.end) {
+                return false;
+            }
+            return isOffsetOnLastVisualLine(element, selection.start, fragment.text.length);
+        },
+        focusNearestPoint(x, y) {
+            const offset = getOffsetAtPoint(element, x, y);
+            this.focus(offset, offset);
         },
         destroy() {
             element.removeEventListener("keydown", handleKeyDown);

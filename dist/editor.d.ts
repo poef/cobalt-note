@@ -7,6 +7,10 @@ export interface Editor {
     state: EditorState;
     focus(start?: number, end?: number): void;
     getSelection(): ReturnType<typeof getSelectionRange>;
+    getCaretClientRect(offset?: number): DOMRect | null;
+    isCaretOnFirstVisualLine(): boolean;
+    isCaretOnLastVisualLine(): boolean;
+    focusNearestPoint(x: number, y: number): void;
     destroy(): void;
 }
 export declare function edit(element: HTMLElement, fragment: Fragment): Editor;
