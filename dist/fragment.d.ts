@@ -9,5 +9,8 @@ export interface Fragment {
 }
 export declare function getNextOrder(fragment: Fragment): number;
 export declare function addAnnotation(fragment: Fragment, range: [number, number], tag: string): Annotation | null;
-export declare function insertText(fragment: Fragment, offset: number, text: string): void;
+export interface InsertTextOptions {
+    growAtEnd?: boolean;
+}
+export declare function insertText(fragment: Fragment, offset: number, text: string, options?: InsertTextOptions): void;
 export declare function deleteRange(fragment: Fragment, startOffset: number, endOffset: number): void;

@@ -2,12 +2,14 @@ import { addAnnotation, deleteRange, insertText } from "./fragment.js";
 export class InsertTextCommand {
     offset;
     text;
-    constructor(offset, text) {
+    options;
+    constructor(offset, text, options = {}) {
         this.offset = offset;
         this.text = text;
+        this.options = options;
     }
     apply(fragment) {
-        insertText(fragment, this.offset, this.text);
+        insertText(fragment, this.offset, this.text, this.options);
     }
 }
 export class DeleteRangeCommand {

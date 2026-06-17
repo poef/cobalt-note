@@ -46,3 +46,15 @@ The example creates a single cobalt editor instance and shows the live fragment 
 
 
 Links are created with Ctrl+K on a non-empty selection. Ctrl+K prompts for a URL and appends an `<a href="...">` annotation for the selected range. Links are not part of pending annotation state for collapsed selections.
+
+## Whitespace and line breaks
+
+Cobalt uses character offsets as its editor coordinate system. The editor host should preserve whitespace so visual caret movement matches the stored text:
+
+```css
+.cobalt-editor {
+    white-space: pre-wrap;
+}
+```
+
+Pressing Enter inserts a newline character (`\n`) into the fragment text. If the caret is exactly at the end boundary of an annotation, that annotation does not grow across the newline. If the caret is inside an annotation, the annotation remains intact and includes the newline.

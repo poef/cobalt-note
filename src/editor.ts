@@ -36,6 +36,7 @@ export function edit(
     function handleKeyDown(event: KeyboardEvent): void {
         if (event.key === "Enter") {
             event.preventDefault();
+            insertNewline();
             return;
         }
 
@@ -131,6 +132,39 @@ export function edit(
         rerender(selection.start, selection.end);
     }
 
+    function insertNewline(): void {
+        const selection = getSelectionRange(element);
+
+        if (!selection) {
+            return;
+        }
+
+        const commands: Command[] = [];
+
+        if (selection.start !== selection.end) {
+            commands.push(
+                new DeleteRangeCommand(
+                    selection.start,
+                    selection.end
+                )
+            );
+        }
+
+        commands.push(
+            new InsertTextCommand(
+                selection.start,
+                "\n",
+                { growAtEnd: false }
+            )
+        );
+
+        applyCommands(fragment, commands);
+
+        const caret = selection.start + 1;
+
+        rerender(caret, caret);
+    }
+
     function addLink(): void {
         const selection = getSelectionRange(element);
 
@@ -193,6 +227,30 @@ export function edit(
                     selectionStart,
                     selectionEnd
                 );
+
+            case "insertParagraph":
+            case "insertLineBreak": {
+                const commands: Command[] = [];
+
+                if (selectionStart !== selectionEnd) {
+                    commands.push(
+                        new DeleteRangeCommand(
+                            selectionStart,
+                            selectionEnd
+                        )
+                    );
+                }
+
+                commands.push(
+                    new InsertTextCommand(
+                        selectionStart,
+                        "\n",
+                        { growAtEnd: false }
+                    )
+                );
+
+                return commands;
+            }
 
             default:
                 return [];
@@ -315,6 +373,10 @@ export function edit(
 
             case "deleteContentForward":
                 return selectionStart;
+
+            case "insertParagraph":
+            case "insertLineBreak":
+                return selectionStart + 1;
 
             default:
                 return selectionStart;

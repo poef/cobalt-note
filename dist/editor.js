@@ -16,6 +16,7 @@ export function edit(element, fragment) {
     function handleKeyDown(event) {
         if (event.key === "Enter") {
             event.preventDefault();
+            insertNewline();
             return;
         }
         if (!event.ctrlKey) {
@@ -66,6 +67,20 @@ export function edit(element, fragment) {
         ]);
         rerender(selection.start, selection.end);
     }
+    function insertNewline() {
+        const selection = getSelectionRange(element);
+        if (!selection) {
+            return;
+        }
+        const commands = [];
+        if (selection.start !== selection.end) {
+            commands.push(new DeleteRangeCommand(selection.start, selection.end));
+        }
+        commands.push(new InsertTextCommand(selection.start, "\n", { growAtEnd: false }));
+        applyCommands(fragment, commands);
+        const caret = selection.start + 1;
+        rerender(caret, caret);
+    }
     function addLink() {
         const selection = getSelectionRange(element);
         if (!selection || selection.start === selection.end) {
@@ -99,6 +114,15 @@ export function edit(element, fragment) {
                 return buildDeleteBackwardCommands(selectionStart, selectionEnd);
             case "deleteContentForward":
                 return buildDeleteForwardCommands(selectionStart, selectionEnd);
+            case "insertParagraph":
+            case "insertLineBreak": {
+                const commands = [];
+                if (selectionStart !== selectionEnd) {
+                    commands.push(new DeleteRangeCommand(selectionStart, selectionEnd));
+                }
+                commands.push(new InsertTextCommand(selectionStart, "\n", { growAtEnd: false }));
+                return commands;
+            }
             default:
                 return [];
         }
@@ -158,6 +182,9 @@ export function edit(element, fragment) {
                     : selectionStart;
             case "deleteContentForward":
                 return selectionStart;
+            case "insertParagraph":
+            case "insertLineBreak":
+                return selectionStart + 1;
             default:
                 return selectionStart;
         }

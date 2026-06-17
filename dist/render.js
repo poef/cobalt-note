@@ -19,7 +19,14 @@ export function render(fragment) {
     for (let i = openTags.length - 1; i >= 0; i--) {
         html += openTags[i].close;
     }
-    return html;
+    return appendTrailingNewlineSentinel(fragment, html);
+}
+function appendTrailingNewlineSentinel(fragment, html) {
+    if (!fragment.text.endsWith("\n")) {
+        return html;
+    }
+    return (html +
+        '<span data-cobalt-sentinel="true">\u200B</span>');
 }
 function getRenderTags(state) {
     return Object

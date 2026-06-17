@@ -1,11 +1,12 @@
-import { Fragment } from "./fragment.js";
+import { Fragment, InsertTextOptions } from "./fragment.js";
 export interface Command {
     apply(fragment: Fragment): void;
 }
 export declare class InsertTextCommand implements Command {
     offset: number;
     text: string;
-    constructor(offset: number, text: string);
+    options: InsertTextOptions;
+    constructor(offset: number, text: string, options?: InsertTextOptions);
     apply(fragment: Fragment): void;
 }
 export declare class DeleteRangeCommand implements Command {

@@ -34,7 +34,24 @@ export function render(fragment: Fragment): string {
         html += openTags[i].close;
     }
 
-    return html;
+    return appendTrailingNewlineSentinel(
+        fragment,
+        html
+    );
+}
+
+function appendTrailingNewlineSentinel(
+    fragment: Fragment,
+    html: string
+): string {
+    if (!fragment.text.endsWith("\n")) {
+        return html;
+    }
+
+    return (
+        html +
+        '<span data-cobalt-sentinel="true">\u200B</span>'
+    );
 }
 
 function getRenderTags(state: EffectiveState): RenderTag[] {

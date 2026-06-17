@@ -2,7 +2,8 @@ import {
     addAnnotation,
     deleteRange,
     Fragment,
-    insertText
+    insertText,
+    InsertTextOptions
 } from "./fragment.js";
 
 export interface Command {
@@ -12,11 +13,12 @@ export interface Command {
 export class InsertTextCommand implements Command {
     constructor(
         public offset: number,
-        public text: string
+        public text: string,
+        public options: InsertTextOptions = {}
     ) {}
 
     apply(fragment: Fragment): void {
-        insertText(fragment, this.offset, this.text);
+        insertText(fragment, this.offset, this.text, this.options);
     }
 }
 

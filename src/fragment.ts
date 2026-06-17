@@ -39,16 +39,22 @@ export function addAnnotation(
     return annotation;
 }
 
+export interface InsertTextOptions {
+    growAtEnd?: boolean;
+}
+
 export function insertText(
     fragment: Fragment,
     offset: number,
-    text: string
+    text: string,
+    options: InsertTextOptions = {}
 ): void {
     if (text.length === 0) {
         return;
     }
 
     const normalizedOffset = clamp(offset, 0, fragment.text.length);
+    const growAtEnd = options.growAtEnd ?? true;
     const delta = text.length;
 
     fragment.text =
@@ -62,7 +68,10 @@ export function insertText(
         if (normalizedOffset <= start) {
             start += delta;
             end += delta;
-        } else if (normalizedOffset <= end) {
+        } else if (
+            normalizedOffset < end ||
+            (growAtEnd && normalizedOffset === end)
+        ) {
             end += delta;
         }
 

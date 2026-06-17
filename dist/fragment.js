@@ -17,11 +17,12 @@ export function addAnnotation(fragment, range, tag) {
     fragment.annotations.push(annotation);
     return annotation;
 }
-export function insertText(fragment, offset, text) {
+export function insertText(fragment, offset, text, options = {}) {
     if (text.length === 0) {
         return;
     }
     const normalizedOffset = clamp(offset, 0, fragment.text.length);
+    const growAtEnd = options.growAtEnd ?? true;
     const delta = text.length;
     fragment.text =
         fragment.text.slice(0, normalizedOffset) +
@@ -33,7 +34,8 @@ export function insertText(fragment, offset, text) {
             start += delta;
             end += delta;
         }
-        else if (normalizedOffset <= end) {
+        else if (normalizedOffset < end ||
+            (growAtEnd && normalizedOffset === end)) {
             end += delta;
         }
         annotation.range = [start, end];

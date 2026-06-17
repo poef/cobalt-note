@@ -34,6 +34,35 @@ describe("fragment range transforms", () => {
         expect(fragment.annotations[0].range).toEqual([1, 4]);
     });
 
+
+    test("newline insertion at annotation end does not grow annotation when requested", () => {
+        const fragment: Fragment = {
+            text: "hello",
+            annotations: [
+                { range: [0, 5], tag: "<strong>", order: 1 }
+            ]
+        };
+
+        insertText(fragment, 5, "\n", { growAtEnd: false });
+
+        expect(fragment.text).toBe("hello\n");
+        expect(fragment.annotations[0].range).toEqual([0, 5]);
+    });
+
+    test("newline insertion inside annotation keeps annotation intact", () => {
+        const fragment: Fragment = {
+            text: "hello",
+            annotations: [
+                { range: [0, 5], tag: "<strong>", order: 1 }
+            ]
+        };
+
+        insertText(fragment, 3, "\n", { growAtEnd: false });
+
+        expect(fragment.text).toBe("hel\nlo");
+        expect(fragment.annotations[0].range).toEqual([0, 6]);
+    });
+
     test("delete inside annotation shrinks the annotation", () => {
         const fragment: Fragment = {
             text: "abcdefghij",
