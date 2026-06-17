@@ -1,4 +1,4 @@
-export { addAnnotation, deleteRange, getNextOrder, insertFragment, insertText, joinFragments, sliceFragment, splitFragment } from "./fragment.js";
+export { addAnnotation, deleteRange, getNextOrder, insertFragment, insertText, joinFragments, concatFragments, sliceFragment, splitFragment } from "./fragment.js";
 export { AddAnnotationCommand, applyCommand, applyCommands, DeleteRangeCommand, InsertFragmentCommand, InsertTextCommand } from "./commands.js";
 export { edit } from "./editor.js";
 export { render } from "./render.js";

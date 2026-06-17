@@ -19,6 +19,11 @@ export interface JoinFragmentsResult {
     joinOffset: number;
 }
 
+export interface ConcatFragmentsResult {
+    fragment: Fragment;
+    joinOffset: number;
+}
+
 export function getNextOrder(fragment: Fragment): number {
     if (fragment.annotations.length === 0) {
         return 1;
@@ -247,37 +252,44 @@ export function splitFragment(
     return { before, after };
 }
 
+export function concatFragments(
+    first: Fragment,
+    second: Fragment,
+    separator = ""
+): ConcatFragmentsResult {
+    const joinOffset = first.text.length;
+    const secondOffset = first.text.length + separator.length;
+
+    return {
+        fragment: {
+            text: first.text + separator + second.text,
+            annotations: mergeAdjacentMatchingAnnotations([
+                ...first.annotations.map(annotation => ({
+                    ...annotation,
+                    range: [...annotation.range] as [number, number]
+                })),
+                ...second.annotations.map(annotation => ({
+                    ...annotation,
+                    range: [
+                        annotation.range[0] + secondOffset,
+                        annotation.range[1] + secondOffset
+                    ] as [number, number]
+                }))
+            ])
+        },
+        joinOffset
+    };
+}
+
 export function joinFragments(
     first: Fragment,
     second: Fragment
 ): JoinFragmentsResult {
-    const joinOffset = first.text.length;
-    const separator = needsJoinSeparator(first, second)
-        ? "\n"
-        : "";
-    const secondOffset = first.text.length + separator.length;
-
-    const fragment: Fragment = {
-        text: first.text + separator + second.text,
-        annotations: mergeAdjacentMatchingAnnotations([
-            ...first.annotations.map(annotation => ({
-                ...annotation,
-                range: [...annotation.range] as [number, number]
-            })),
-            ...second.annotations.map(annotation => ({
-                ...annotation,
-                range: [
-                    annotation.range[0] + secondOffset,
-                    annotation.range[1] + secondOffset
-                ] as [number, number]
-            }))
-        ])
-    };
-
-    return {
-        fragment,
-        joinOffset
-    };
+    return concatFragments(
+        first,
+        second,
+        needsJoinSeparator(first, second) ? "\n" : ""
+    );
 }
 
 export function mergeAdjacentMatchingAnnotations(

@@ -69,7 +69,7 @@
     <pre id="notebook"></pre>
 
     <script type="module">
-        import { edit, joinFragments, splitFragment } from "../dist/index.js";
+        import { concatFragments, deleteRange, edit, joinFragments, sliceFragment, splitFragment } from "../dist/index.js";
 
         const notes = [
             {
@@ -126,6 +126,13 @@
                         event.preventDefault();
                         event.stopPropagation();
                         extendNotebookSelection(index, selection.start, "right");
+                        return;
+                    }
+
+                    if (notebookSelection && (event.key === "Backspace" || event.key === "Delete")) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        deleteNotebookSelection();
                         return;
                     }
 
@@ -308,6 +315,56 @@
                 noteIndex: point.noteIndex + 1,
                 offset: 0
             };
+        }
+
+        function deleteNotebookSelection() {
+            if (!notebookSelection) {
+                return;
+            }
+
+            const ordered = getOrderedNotebookSelection();
+            const start = ordered.start;
+            const end = ordered.end;
+
+            notebookSelection = null;
+
+            if (compareNotebookPoints(start, end) === 0) {
+                renderNotebook(start.noteIndex, start.offset);
+                return;
+            }
+
+            if (start.noteIndex === end.noteIndex) {
+                deleteRange(
+                    notes[start.noteIndex],
+                    start.offset,
+                    end.offset
+                );
+
+                renderNotebook(start.noteIndex, start.offset);
+                return;
+            }
+
+            const prefix = sliceFragment(
+                notes[start.noteIndex],
+                0,
+                start.offset
+            );
+
+            const suffix = sliceFragment(
+                notes[end.noteIndex],
+                end.offset,
+                notes[end.noteIndex].text.length
+            );
+
+            const result = concatFragments(prefix, suffix);
+
+            notes.splice(
+                start.noteIndex,
+                end.noteIndex - start.noteIndex + 1,
+                result.fragment
+            );
+
+            renderNotebook(start.noteIndex, start.offset);
         }
 
         function clearNotebookSelection() {

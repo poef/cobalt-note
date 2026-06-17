@@ -2,7 +2,8 @@ export type {
     Annotation,
     Fragment,
     SplitFragmentResult,
-    JoinFragmentsResult
+    JoinFragmentsResult,
+    ConcatFragmentsResult
 } from "./fragment.js";
 
 export {
@@ -12,6 +13,7 @@ export {
     insertFragment,
     insertText,
     joinFragments,
+    concatFragments,
     sliceFragment,
     splitFragment
 } from "./fragment.js";

@@ -152,32 +152,31 @@ export function splitFragment(fragment, offset) {
     }
     return { before, after };
 }
-export function joinFragments(first, second) {
+export function concatFragments(first, second, separator = "") {
     const joinOffset = first.text.length;
-    const separator = needsJoinSeparator(first, second)
-        ? "\n"
-        : "";
     const secondOffset = first.text.length + separator.length;
-    const fragment = {
-        text: first.text + separator + second.text,
-        annotations: mergeAdjacentMatchingAnnotations([
-            ...first.annotations.map(annotation => ({
-                ...annotation,
-                range: [...annotation.range]
-            })),
-            ...second.annotations.map(annotation => ({
-                ...annotation,
-                range: [
-                    annotation.range[0] + secondOffset,
-                    annotation.range[1] + secondOffset
-                ]
-            }))
-        ])
-    };
     return {
-        fragment,
+        fragment: {
+            text: first.text + separator + second.text,
+            annotations: mergeAdjacentMatchingAnnotations([
+                ...first.annotations.map(annotation => ({
+                    ...annotation,
+                    range: [...annotation.range]
+                })),
+                ...second.annotations.map(annotation => ({
+                    ...annotation,
+                    range: [
+                        annotation.range[0] + secondOffset,
+                        annotation.range[1] + secondOffset
+                    ]
+                }))
+            ])
+        },
         joinOffset
     };
+}
+export function joinFragments(first, second) {
+    return concatFragments(first, second, needsJoinSeparator(first, second) ? "\n" : "");
 }
 export function mergeAdjacentMatchingAnnotations(annotations) {
     const sorted = [...annotations].sort((a, b) => {
