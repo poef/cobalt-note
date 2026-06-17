@@ -6,16 +6,6 @@ import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
 import { getSelectionRange, SelectionRange, setSelectionRange } from "./selection.js";
 
-export const COBALT_JOIN_REQUEST_EVENT = "cobalt:joinrequest";
-
-export type JoinDirection = "backward" | "forward";
-
-export interface JoinRequestDetail {
-    direction: JoinDirection;
-    editor: Editor;
-    selection: SelectionRange;
-}
-
 export interface Editor {
     element: HTMLElement;
     fragment: Fragment;
@@ -102,11 +92,6 @@ export function edit(
             return;
         }
 
-        if (requestNotebookJoin(inputEvent, selection)) {
-            event.preventDefault();
-            return;
-        }
-
         const commands = buildInputCommands(
             inputEvent,
             selection.start,
@@ -128,50 +113,6 @@ export function edit(
         );
 
         rerender(caret, caret);
-    }
-
-    function requestNotebookJoin(
-        event: InputEvent,
-        selection: SelectionRange
-    ): boolean {
-        if (selection.start !== selection.end) {
-            return false;
-        }
-
-        let direction: JoinDirection | null = null;
-
-        if (
-            event.inputType === "deleteContentBackward" &&
-            selection.start === 0
-        ) {
-            direction = "backward";
-        }
-
-        if (
-            event.inputType === "deleteContentForward" &&
-            selection.start === fragment.text.length
-        ) {
-            direction = "forward";
-        }
-
-        if (!direction) {
-            return false;
-        }
-
-        const joinEvent = new CustomEvent<JoinRequestDetail>(
-            COBALT_JOIN_REQUEST_EVENT,
-            {
-                bubbles: true,
-                cancelable: true,
-                detail: {
-                    direction,
-                    editor,
-                    selection
-                }
-            }
-        );
-
-        return !element.dispatchEvent(joinEvent);
     }
 
     function toggleAnnotation(

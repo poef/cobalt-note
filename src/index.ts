@@ -27,14 +27,11 @@ export type {
 } from "./commands.js";
 
 export {
-    COBALT_JOIN_REQUEST_EVENT,
     edit
 } from "./editor.js";
 
 export type {
-    Editor,
-    JoinDirection,
-    JoinRequestDetail
+    Editor
 } from "./editor.js";
 
 export {

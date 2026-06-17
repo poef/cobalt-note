@@ -62,7 +62,7 @@
     <pre id="notebook"></pre>
 
     <script type="module">
-        import { COBALT_JOIN_REQUEST_EVENT, edit, joinFragments, splitFragment } from "../dist/index.js";
+        import { edit, joinFragments, splitFragment } from "../dist/index.js";
 
         const notes = [
             {
@@ -101,33 +101,44 @@
                 const editor = edit(element, fragment);
 
                 element.addEventListener("keydown", event => {
-                    if (event.key !== "Enter" || !event.ctrlKey) {
-                        return;
-                    }
-
                     const selection = editor.getSelection();
 
                     if (!selection) {
                         return;
                     }
 
-                    event.preventDefault();
-                    event.stopPropagation();
-                    splitNote(index, selection.start);
-                }, { capture: true });
-
-                element.addEventListener(COBALT_JOIN_REQUEST_EVENT, event => {
-                    const direction = event.detail.direction;
-
-                    if (direction === "backward") {
-                        joinWithPreviousNote(index, event);
+                    if (event.key === "Enter" && event.ctrlKey) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        splitNote(index, selection.start);
                         return;
                     }
 
-                    if (direction === "forward") {
-                        joinWithNextNote(index, event);
+                    if (selection.start !== selection.end) {
+                        return;
                     }
-                });
+
+                    if (event.key === "Backspace" && selection.start === 0) {
+                        if (index === 0) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        joinWithPreviousNote(index);
+                        return;
+                    }
+
+                    if (event.key === "Delete" && selection.start === fragment.text.length) {
+                        if (index >= notes.length - 1) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        joinWithNextNote(index);
+                    }
+                }, { capture: true });
 
                 editors.push(editor);
             });
@@ -152,12 +163,10 @@
             renderNotebook(index + 1, 0);
         }
 
-        function joinWithPreviousNote(index, event) {
+        function joinWithPreviousNote(index) {
             if (index === 0) {
                 return;
             }
-
-            event.preventDefault();
 
             const result = joinFragments(
                 notes[index - 1],
@@ -176,12 +185,10 @@
             );
         }
 
-        function joinWithNextNote(index, event) {
+        function joinWithNextNote(index) {
             if (index >= notes.length - 1) {
                 return;
             }
-
-            event.preventDefault();
 
             const result = joinFragments(
                 notes[index],
