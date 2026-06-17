@@ -26,6 +26,8 @@ export interface NotebookNoteAdapter {
     isCaretOnFirstVisualLine(): boolean;
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
+    getOffsetAtPoint(x: number, y: number): number;
+    getClientRect(): DOMRect;
     showSelectionRanges(ranges: LocalSelectionRange[]): void;
     clearSelectionRanges(): void;
 }
@@ -58,6 +60,49 @@ export class NotebookController {
 
         this.selection = null;
         this.clearSelectionDecorations();
+    }
+
+
+    startPointerSelection(point: NotebookPoint): void {
+        this.resetVerticalNavigation();
+        this.selection = {
+            anchor: { ...point },
+            focus: { ...point }
+        };
+        this.adapters[point.noteIndex]?.focus(point.offset, point.offset);
+        this.updateSelectionDecorations();
+    }
+
+    updatePointerSelection(point: NotebookPoint): void {
+        if (!this.selection) {
+            this.startPointerSelection(point);
+            return;
+        }
+
+        this.selection.focus = { ...point };
+        this.adapters[point.noteIndex]?.focus(point.offset, point.offset);
+        this.updateSelectionDecorations();
+    }
+
+    finishPointerSelection(): void {
+        if (!this.hasSelection()) {
+            this.clearSelection();
+        } else {
+            this.updateSelectionDecorations();
+        }
+    }
+
+    getPointAtClientPosition(x: number, y: number): NotebookPoint | null {
+        const index = this.getNoteIndexAtClientPosition(x, y);
+
+        if (index === null) {
+            return null;
+        }
+
+        return {
+            noteIndex: index,
+            offset: this.adapters[index].getOffsetAtPoint(x, y)
+        };
     }
 
     resetVerticalNavigation(): void {
@@ -234,6 +279,51 @@ export class NotebookController {
         );
 
         return true;
+    }
+
+
+    private getNoteIndexAtClientPosition(x: number, y: number): number | null {
+        if (this.adapters.length === 0) {
+            return null;
+        }
+
+        let closest: {
+            index: number;
+            distance: number;
+        } | null = null;
+
+        for (let index = 0; index < this.adapters.length; index++) {
+            const rect = this.adapters[index].getClientRect();
+
+            if (
+                y >= rect.top &&
+                y <= rect.bottom &&
+                x >= rect.left &&
+                x <= rect.right
+            ) {
+                return index;
+            }
+
+            const verticalDistance = y < rect.top
+                ? rect.top - y
+                : y > rect.bottom
+                    ? y - rect.bottom
+                    : 0;
+
+            const horizontalDistance = x < rect.left
+                ? rect.left - x
+                : x > rect.right
+                    ? x - rect.right
+                    : 0;
+
+            const distance = verticalDistance * 10000 + horizontalDistance;
+
+            if (!closest || distance < closest.distance) {
+                closest = { index, distance };
+            }
+        }
+
+        return closest?.index ?? null;
     }
 
     private ensureSelection(index: number, offset: number): void {

@@ -24,6 +24,8 @@ export interface Editor {
     isCaretOnFirstVisualLine(): boolean;
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
+    getOffsetAtPoint(x: number, y: number): number;
+    getClientRect(): DOMRect;
     showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[]): void;
     clearSelectionRanges(): void;
     destroy(): void;
@@ -132,6 +134,12 @@ export function edit(
             const offset = getOffsetAtPoint(element, x, y);
 
             this.focus(offset, offset);
+        },
+        getOffsetAtPoint(x: number, y: number): number {
+            return getOffsetAtPoint(element, x, y);
+        },
+        getClientRect(): DOMRect {
+            return element.getBoundingClientRect();
         },
         showSelectionRanges(ranges): void {
             selectionDecorationRanges = ranges.filter((range): range is NonNullable<typeof range> =>

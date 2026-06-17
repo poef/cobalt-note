@@ -74,6 +74,12 @@ export function edit(element, fragment) {
             const offset = getOffsetAtPoint(element, x, y);
             this.focus(offset, offset);
         },
+        getOffsetAtPoint(x, y) {
+            return getOffsetAtPoint(element, x, y);
+        },
+        getClientRect() {
+            return element.getBoundingClientRect();
+        },
         showSelectionRanges(ranges) {
             selectionDecorationRanges = ranges.filter((range) => range !== null && range.end > range.start);
             const selection = getSelectionRange(element);

@@ -11,6 +11,8 @@ export interface Editor {
     isCaretOnFirstVisualLine(): boolean;
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
+    getOffsetAtPoint(x: number, y: number): number;
+    getClientRect(): DOMRect;
     showSelectionRanges(ranges: ReturnType<typeof getSelectionRange>[]): void;
     clearSelectionRanges(): void;
     destroy(): void;

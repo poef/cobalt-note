@@ -22,6 +22,8 @@ export interface NotebookNoteAdapter {
     isCaretOnFirstVisualLine(): boolean;
     isCaretOnLastVisualLine(): boolean;
     focusNearestPoint(x: number, y: number): void;
+    getOffsetAtPoint(x: number, y: number): number;
+    getClientRect(): DOMRect;
     showSelectionRanges(ranges: LocalSelectionRange[]): void;
     clearSelectionRanges(): void;
 }
@@ -33,6 +35,10 @@ export declare class NotebookController {
     getSelection(): NotebookSelection | null;
     hasSelection(): boolean;
     clearSelection(): void;
+    startPointerSelection(point: NotebookPoint): void;
+    updatePointerSelection(point: NotebookPoint): void;
+    finishPointerSelection(): void;
+    getPointAtClientPosition(x: number, y: number): NotebookPoint | null;
     resetVerticalNavigation(): void;
     prepareVerticalNavigation(index: number): void;
     getOrderedSelection(): NotebookRange | null;
@@ -45,6 +51,7 @@ export declare class NotebookController {
     moveRight(index: number, offset: number): boolean;
     moveUp(index: number): boolean;
     moveDown(index: number): boolean;
+    private getNoteIndexAtClientPosition;
     private ensureSelection;
     private applyFocusAndDecorations;
     private extendVertically;
