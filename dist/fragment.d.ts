@@ -22,6 +22,8 @@ export interface InsertTextOptions {
 }
 export declare function insertText(fragment: Fragment, offset: number, text: string, options?: InsertTextOptions): void;
 export declare function deleteRange(fragment: Fragment, startOffset: number, endOffset: number): void;
+export declare function sliceFragment(fragment: Fragment, startOffset: number, endOffset: number): Fragment;
+export declare function insertFragment(fragment: Fragment, offset: number, inserted: Fragment, options?: InsertTextOptions): void;
 export declare function splitFragment(fragment: Fragment, offset: number): SplitFragmentResult;
 export declare function joinFragments(first: Fragment, second: Fragment): JoinFragmentsResult;
 export declare function mergeAdjacentMatchingAnnotations(annotations: Annotation[]): Annotation[];

@@ -9,6 +9,13 @@ export declare class InsertTextCommand implements Command {
     constructor(offset: number, text: string, options?: InsertTextOptions);
     apply(fragment: Fragment): void;
 }
+export declare class InsertFragmentCommand implements Command {
+    offset: number;
+    fragmentToInsert: Fragment;
+    options: InsertTextOptions;
+    constructor(offset: number, fragmentToInsert: Fragment, options?: InsertTextOptions);
+    apply(fragment: Fragment): void;
+}
 export declare class DeleteRangeCommand implements Command {
     startOffset: number;
     endOffset: number;

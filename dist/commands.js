@@ -1,4 +1,4 @@
-import { addAnnotation, deleteRange, insertText } from "./fragment.js";
+import { addAnnotation, deleteRange, insertFragment, insertText } from "./fragment.js";
 export class InsertTextCommand {
     offset;
     text;
@@ -10,6 +10,19 @@ export class InsertTextCommand {
     }
     apply(fragment) {
         insertText(fragment, this.offset, this.text, this.options);
+    }
+}
+export class InsertFragmentCommand {
+    offset;
+    fragmentToInsert;
+    options;
+    constructor(offset, fragmentToInsert, options = {}) {
+        this.offset = offset;
+        this.fragmentToInsert = fragmentToInsert;
+        this.options = options;
+    }
+    apply(fragment) {
+        insertFragment(fragment, this.offset, this.fragmentToInsert, this.options);
     }
 }
 export class DeleteRangeCommand {

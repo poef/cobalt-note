@@ -1,5 +1,6 @@
-import { applyCommands, AddAnnotationCommand, DeleteRangeCommand, InsertTextCommand } from "./commands.js";
+import { applyCommands, AddAnnotationCommand, DeleteRangeCommand, InsertFragmentCommand, InsertTextCommand } from "./commands.js";
 import { createEditorState, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
+import { getClipboardFragment, readFragmentFromClipboard, writeFragmentToClipboard } from "./clipboard.js";
 import { createAnnotationTag, createLinkAnnotationTag, defaultRegistry } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
@@ -55,6 +56,9 @@ export function edit(element, fragment) {
         destroy() {
             element.removeEventListener("keydown", handleKeyDown);
             element.removeEventListener("beforeinput", handleBeforeInput);
+            element.removeEventListener("copy", handleCopy);
+            element.removeEventListener("cut", handleCut);
+            element.removeEventListener("paste", handlePaste);
             element.removeAttribute("contenteditable");
         }
     };
@@ -94,6 +98,42 @@ export function edit(element, fragment) {
         event.preventDefault();
         applyCommands(fragment, commands);
         const caret = getNextCaretPosition(inputEvent, selection.start, selection.end);
+        rerender(caret, caret);
+    }
+    function handleCopy(event) {
+        const selection = getSelectionRange(element);
+        if (!selection || selection.start === selection.end || !event.clipboardData) {
+            return;
+        }
+        event.preventDefault();
+        writeFragmentToClipboard(event.clipboardData, getClipboardFragment(fragment, selection.start, selection.end));
+    }
+    function handleCut(event) {
+        const selection = getSelectionRange(element);
+        if (!selection || selection.start === selection.end || !event.clipboardData) {
+            return;
+        }
+        event.preventDefault();
+        writeFragmentToClipboard(event.clipboardData, getClipboardFragment(fragment, selection.start, selection.end));
+        applyCommands(fragment, [
+            new DeleteRangeCommand(selection.start, selection.end)
+        ]);
+        rerender(selection.start, selection.start);
+    }
+    function handlePaste(event) {
+        const selection = getSelectionRange(element);
+        if (!selection || !event.clipboardData) {
+            return;
+        }
+        event.preventDefault();
+        const pastedFragment = readFragmentFromClipboard(event.clipboardData);
+        const commands = [];
+        if (selection.start !== selection.end) {
+            commands.push(new DeleteRangeCommand(selection.start, selection.end));
+        }
+        commands.push(new InsertFragmentCommand(selection.start, pastedFragment));
+        applyCommands(fragment, commands);
+        const caret = selection.start + pastedFragment.text.length;
         rerender(caret, caret);
     }
     function toggleAnnotation(definition) {
@@ -251,6 +291,9 @@ export function edit(element, fragment) {
     rerender();
     element.addEventListener("keydown", handleKeyDown);
     element.addEventListener("beforeinput", handleBeforeInput);
+    element.addEventListener("copy", handleCopy);
+    element.addEventListener("cut", handleCut);
+    element.addEventListener("paste", handlePaste);
     return editor;
 }
 //# sourceMappingURL=editor.js.map

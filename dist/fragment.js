@@ -63,6 +63,64 @@ export function deleteRange(fragment, startOffset, endOffset) {
     })
         .filter(annotation => annotation.range[1] > annotation.range[0]));
 }
+export function sliceFragment(fragment, startOffset, endOffset) {
+    const start = clamp(startOffset, 0, fragment.text.length);
+    const end = clamp(endOffset, 0, fragment.text.length);
+    if (end <= start) {
+        return {
+            text: "",
+            annotations: []
+        };
+    }
+    return {
+        text: fragment.text.slice(start, end),
+        annotations: fragment.annotations
+            .map(annotation => {
+            const annotationStart = Math.max(annotation.range[0], start);
+            const annotationEnd = Math.min(annotation.range[1], end);
+            if (annotationEnd <= annotationStart) {
+                return null;
+            }
+            return {
+                ...annotation,
+                range: [
+                    annotationStart - start,
+                    annotationEnd - start
+                ]
+            };
+        })
+            .filter((annotation) => annotation !== null)
+    };
+}
+export function insertFragment(fragment, offset, inserted, options = {}) {
+    const normalizedOffset = clamp(offset, 0, fragment.text.length);
+    if (inserted.text.length === 0) {
+        return;
+    }
+    const maxOrder = getNextOrder(fragment) - 1;
+    insertText(fragment, normalizedOffset, inserted.text, options);
+    const sortedAnnotations = [...inserted.annotations].sort((a, b) => {
+        if (a.order !== b.order) {
+            return a.order - b.order;
+        }
+        if (a.range[0] !== b.range[0]) {
+            return a.range[0] - b.range[0];
+        }
+        return a.range[1] - b.range[1];
+    });
+    for (let i = 0; i < sortedAnnotations.length; i++) {
+        const annotation = sortedAnnotations[i];
+        fragment.annotations.push({
+            ...annotation,
+            range: [
+                annotation.range[0] + normalizedOffset,
+                annotation.range[1] + normalizedOffset
+            ],
+            order: maxOrder + i + 1
+        });
+    }
+    fragment.annotations = mergeAdjacentMatchingAnnotations(fragment.annotations);
+}
 export function splitFragment(fragment, offset) {
     const splitOffset = clamp(offset, 0, fragment.text.length);
     const before = {

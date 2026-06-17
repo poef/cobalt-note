@@ -9,8 +9,10 @@ export {
     addAnnotation,
     deleteRange,
     getNextOrder,
+    insertFragment,
     insertText,
     joinFragments,
+    sliceFragment,
     splitFragment
 } from "./fragment.js";
 
@@ -19,6 +21,7 @@ export {
     applyCommand,
     applyCommands,
     DeleteRangeCommand,
+    InsertFragmentCommand,
     InsertTextCommand
 } from "./commands.js";
 
@@ -57,3 +60,10 @@ export {
     defaultRegistry,
     parseAnnotationTag
 } from "./registry.js";
+
+export {
+    COBALT_CLIPBOARD_MIME,
+    getClipboardFragment,
+    readFragmentFromClipboard,
+    writeFragmentToClipboard
+} from "./clipboard.js";
