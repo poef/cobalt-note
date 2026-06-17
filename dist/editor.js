@@ -2,7 +2,7 @@ import { applyCommands, AddAnnotationCommand, DeleteRangeCommand, InsertTextComm
 import { createEditorState, buildPendingAnnotations, clearPendingAnnotations } from "./editor-state.js";
 import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
-import { getEffectiveState } from "./runs.js";
+import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
 import { getCaretClientRect, getOffsetAtPoint, getSelectionRange, isOffsetOnFirstVisualLine, isOffsetOnLastVisualLine, setSelectionRange } from "./selection.js";
 export function edit(element, fragment) {
     const state = createEditorState();
@@ -103,8 +103,16 @@ export function edit(element, fragment) {
             return;
         }
         if (selection.start === selection.end) {
-            const currentState = getEffectiveState(fragment.annotations, selection.start);
-            state.pending[annotation] = currentState[annotation] === undefined;
+            const inheritedState = getTypingEffectiveState(fragment.annotations, selection.start);
+            const inheritedEnabled = inheritedState[annotation] !== undefined;
+            const currentTypingEnabled = state.pending[annotation] ?? inheritedEnabled;
+            const nextTypingEnabled = !currentTypingEnabled;
+            if (nextTypingEnabled === inheritedEnabled) {
+                delete state.pending[annotation];
+            }
+            else {
+                state.pending[annotation] = nextTypingEnabled;
+            }
             rerender(selection.start, selection.end);
             return;
         }

@@ -1,7 +1,7 @@
 import { AnnotationRegistry } from "../src/registry.js";
 import { Fragment } from "../src/fragment.js";
 import { render } from "../src/render.js";
-import { generateRuns, getEffectiveState } from "../src/runs.js";
+import { generateRuns, getEffectiveState, getTypingEffectiveState } from "../src/runs.js";
 
 describe("annotation evaluation and rendering", () => {
     test("inverse annotation disables an earlier annotation for its range", () => {
@@ -19,6 +19,17 @@ describe("annotation evaluation and rendering", () => {
         expect(render(fragment)).toBe(
             "<strong>abc</strong>defg<strong>hij</strong>"
         );
+    });
+
+
+    test("typing state follows half-open insertion rules at annotation boundaries", () => {
+        const annotations = [
+            { range: [1, 3] as [number, number], tag: "<strong>", order: 1 }
+        ];
+
+        expect(getTypingEffectiveState(annotations, 1).strong).toBeUndefined();
+        expect(getTypingEffectiveState(annotations, 2).strong).toBeDefined();
+        expect(getTypingEffectiveState(annotations, 3).strong).toBeDefined();
     });
 
     test("later annotations win when re-enabling after an inverse annotation", () => {

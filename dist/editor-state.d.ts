@@ -1,5 +1,12 @@
 export type ToggleAnnotationName = "strong" | "em" | "underline";
-export type PendingAnnotations = Record<ToggleAnnotationName, boolean>;
+/**
+ * Pending annotation values are one-shot overrides for the next inserted text.
+ *
+ * undefined = no pending override
+ * true      = make the next inserted text have this annotation
+ * false     = make the next inserted text not have this annotation
+ */
+export type PendingAnnotations = Partial<Record<ToggleAnnotationName, boolean>>;
 export interface EditorState {
     pending: PendingAnnotations;
 }

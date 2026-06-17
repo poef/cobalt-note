@@ -5,15 +5,15 @@ import {
 } from "../src/editor-state.js";
 
 describe("editor pending annotation state", () => {
-    test("pending annotations build one-shot annotation ranges", () => {
+    test("pending annotations build one-shot enable and disable annotation ranges", () => {
         const state = createEditorState();
 
         state.pending.strong = true;
-        state.pending.em = true;
+        state.pending.em = false;
 
         expect(buildPendingAnnotations(state, 4, 5)).toEqual([
             { start: 4, end: 5, tag: "<strong>" },
-            { start: 4, end: 5, tag: "<em>" }
+            { start: 4, end: 5, tag: "</em>" }
         ]);
     });
 
@@ -21,13 +21,9 @@ describe("editor pending annotation state", () => {
         const state = createEditorState();
 
         state.pending.strong = true;
-        state.pending.em = true;
+        state.pending.em = false;
         clearPendingAnnotations(state);
 
-        expect(state.pending).toEqual({
-            strong: false,
-            em: false,
-            underline: false
-        });
+        expect(state.pending).toEqual({});
     });
 });

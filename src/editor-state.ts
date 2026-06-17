@@ -5,7 +5,14 @@ export type ToggleAnnotationName =
     | "em"
     | "underline";
 
-export type PendingAnnotations = Record<ToggleAnnotationName, boolean>;
+/**
+ * Pending annotation values are one-shot overrides for the next inserted text.
+ *
+ * undefined = no pending override
+ * true      = make the next inserted text have this annotation
+ * false     = make the next inserted text not have this annotation
+ */
+export type PendingAnnotations = Partial<Record<ToggleAnnotationName, boolean>>;
 
 export interface EditorState {
     pending: PendingAnnotations;
@@ -19,11 +26,7 @@ export interface PendingAnnotationRange {
 
 export function createEditorState(): EditorState {
     return {
-        pending: {
-            strong: false,
-            em: false,
-            underline: false
-        }
+        pending: {}
     };
 }
 
@@ -35,14 +38,16 @@ export function buildPendingAnnotations(
     const result: PendingAnnotationRange[] = [];
 
     for (const name of Object.keys(state.pending) as ToggleAnnotationName[]) {
-        if (!state.pending[name]) {
+        const enabled = state.pending[name];
+
+        if (enabled === undefined) {
             continue;
         }
 
         result.push({
             start,
             end,
-            tag: createAnnotationTag(name, true)
+            tag: createAnnotationTag(name, enabled)
         });
     }
 
@@ -53,6 +58,6 @@ export function clearPendingAnnotations(
     state: EditorState
 ): void {
     for (const name of Object.keys(state.pending) as ToggleAnnotationName[]) {
-        state.pending[name] = false;
+        delete state.pending[name];
     }
 }

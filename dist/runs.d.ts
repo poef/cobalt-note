@@ -12,5 +12,6 @@ export interface Run {
 }
 export declare function createEmptyState(): EffectiveState;
 export declare function getEffectiveState(annotations: Annotation[], offset: number): EffectiveState;
+export declare function getTypingEffectiveState(annotations: Annotation[], offset: number): EffectiveState;
 export declare function generateRuns(fragment: Fragment): Run[];
 export declare function stateEquals(a: EffectiveState, b: EffectiveState): boolean;

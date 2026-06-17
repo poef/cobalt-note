@@ -3,7 +3,7 @@ import { createEditorState, EditorState, ToggleAnnotationName, buildPendingAnnot
 import { Fragment } from "./fragment.js";
 import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
-import { getEffectiveState } from "./runs.js";
+import { getEffectiveState, getTypingEffectiveState } from "./runs.js";
 import {
     getCaretClientRect,
     getOffsetAtPoint,
@@ -176,12 +176,20 @@ export function edit(
         }
 
         if (selection.start === selection.end) {
-            const currentState = getEffectiveState(
+            const inheritedState = getTypingEffectiveState(
                 fragment.annotations,
                 selection.start
             );
 
-            state.pending[annotation] = currentState[annotation] === undefined;
+            const inheritedEnabled = inheritedState[annotation] !== undefined;
+            const currentTypingEnabled = state.pending[annotation] ?? inheritedEnabled;
+            const nextTypingEnabled = !currentTypingEnabled;
+
+            if (nextTypingEnabled === inheritedEnabled) {
+                delete state.pending[annotation];
+            } else {
+                state.pending[annotation] = nextTypingEnabled;
+            }
 
             rerender(selection.start, selection.end);
             return;

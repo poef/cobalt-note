@@ -40,7 +40,8 @@ export {
 
 export {
     generateRuns,
-    getEffectiveState
+    getEffectiveState,
+    getTypingEffectiveState
 } from "./runs.js";
 
 export type {

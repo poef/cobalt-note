@@ -39,6 +39,28 @@ export function getEffectiveState(
     return state;
 }
 
+
+export function getTypingEffectiveState(
+    annotations: Annotation[],
+    offset: number
+): EffectiveState {
+    const state = createEmptyState();
+
+    const activeAnnotations = annotations
+        .filter(annotation => {
+            const [start, end] = annotation.range;
+
+            return start < offset && offset <= end;
+        })
+        .sort((a, b) => a.order - b.order);
+
+    for (const annotation of activeAnnotations) {
+        applyAnnotationToState(state, annotation.tag);
+    }
+
+    return state;
+}
+
 export function generateRuns(fragment: Fragment): Run[] {
     const boundaries = new Set<number>();
 

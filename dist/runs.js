@@ -13,6 +13,19 @@ export function getEffectiveState(annotations, offset) {
     }
     return state;
 }
+export function getTypingEffectiveState(annotations, offset) {
+    const state = createEmptyState();
+    const activeAnnotations = annotations
+        .filter(annotation => {
+        const [start, end] = annotation.range;
+        return start < offset && offset <= end;
+    })
+        .sort((a, b) => a.order - b.order);
+    for (const annotation of activeAnnotations) {
+        applyAnnotationToState(state, annotation.tag);
+    }
+    return state;
+}
 export function generateRuns(fragment) {
     const boundaries = new Set();
     boundaries.add(0);
