@@ -61,6 +61,10 @@ export interface NotebookDeleteSelectionResult {
         fragment: NotebookNoteFragment;
     };
 }
+export interface NotebookCommandResult {
+    /** Cursor position to restore after the application rerenders notes. */
+    focus: NotebookPoint;
+}
 export interface NotebookNoteAdapter {
     getType(): string;
     getValue(): unknown;
@@ -90,8 +94,9 @@ export interface NotebookNoteAdapter {
     };
     canMergeFragment(fragment: NotebookNoteFragment, direction: "before" | "after"): boolean;
     mergeFragment(fragment: NotebookNoteFragment, direction: "before" | "after"): NotebookNoteMergeResult | null;
-    canApplyAnnotation?(name: string): boolean;
-    applyAnnotation?(start: number, end: number, name: string, value?: unknown): void;
+    canApplyCommand?(command: string, range: LocalSelectionRange, value?: unknown): boolean;
+    getCommandState?(command: string, offset: number): unknown;
+    applyCommand?(command: string, range: LocalSelectionRange, value?: unknown): boolean;
 }
 export declare class NotebookController {
     private adapters;
@@ -131,6 +136,9 @@ export declare class NotebookController {
         deleteResult: NotebookDeleteSelectionResult;
     } | null;
     pasteFragments(noteIndex: number, offset: number, fragments: NotebookNoteFragment[]): NotebookPasteResult | null;
+    canApplyCommandToSelection(command: string, value?: unknown): boolean;
+    getSelectionCommandState(command: string): unknown;
+    applyCommandToSelection(command: string, value?: unknown): NotebookCommandResult | null;
     replaceSelectionWithFragments(fragments: NotebookNoteFragment[]): NotebookPasteResult | null;
     moveDown(index: number): boolean;
     private selectExpandedRangeAtClientPosition;

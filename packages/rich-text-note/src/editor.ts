@@ -70,8 +70,9 @@ export interface Editor {
     };
     canMergeFragment(fragment: { type: string; data: unknown }, direction: "before" | "after"): boolean;
     mergeFragment(fragment: { type: string; data: unknown }, direction: "before" | "after"): RichTextNotebookMergeResult | null;
-    canApplyAnnotation(name: string): boolean;
-    applyAnnotation(start: number, end: number, name: string, value?: unknown): void;
+    canApplyCommand(command: string, range: { start: number; end: number }, value?: unknown): boolean;
+    getCommandState(command: string, offset: number): unknown;
+    applyCommand(command: string, range: { start: number; end: number }, value?: unknown): boolean;
     destroy(): void;
 }
 
@@ -340,20 +341,32 @@ export function edit(
                 joinOffset: result.joinOffset
             };
         },
-        canApplyAnnotation(name: string): boolean {
-            return name !== "__selection" && defaultRegistry.get(name) !== undefined;
-        },
-        applyAnnotation(start: number, end: number, name: string, value?: unknown): void {
-            if (end <= start || !this.canApplyAnnotation(name)) {
-                return;
+        canApplyCommand(command: string, range: { start: number; end: number }, value?: unknown): boolean {
+            if (range.end <= range.start || command === "__selection") {
+                return false;
             }
 
-            const tag = name === "link" && typeof value === "string"
-                ? createLinkAnnotationTag(value)
-                : createAnnotationTag(name, true);
+            if (command === "link") {
+                return typeof value === "string" && value.length > 0;
+            }
 
-            addFragmentAnnotation(fragment, [start, end], tag);
-            rerender(start, end);
+            return defaultRegistry.get(command) !== undefined;
+        },
+        getCommandState(command: string, offset: number): unknown {
+            return getEffectiveState(fragment.annotations, offset)[command];
+        },
+        applyCommand(command: string, range: { start: number; end: number }, value?: unknown): boolean {
+            if (!this.canApplyCommand(command, range, value)) {
+                return false;
+            }
+
+            const tag = command === "link" && typeof value === "string"
+                ? createLinkAnnotationTag(value)
+                : createAnnotationTag(command, value !== false);
+
+            addFragmentAnnotation(fragment, [range.start, range.end], tag);
+            rerender(range.start, range.end);
+            return true;
         },
         destroy(): void {
             element.removeEventListener("keydown", handleKeyDown);

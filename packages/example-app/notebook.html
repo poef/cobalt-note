@@ -83,17 +83,13 @@
     </script>
     <script type="module">
         import {
-            addAnnotation,
             concatFragments,
-            createAnnotationTag,
-            createLinkAnnotationTag,
             defaultRegistry,
             deleteRange,
             edit,
             insertFragment,
             insertText,
             joinFragments,
-            getEffectiveState,
             readFragmentsFromClipboard,
             RICH_TEXT_NOTE_FRAGMENT_TYPE,
             sliceFragment,
@@ -341,7 +337,7 @@
                     event.preventDefault();
                     event.stopPropagation();
 
-                    applyAnnotationToNotebookSelection(definition);
+                    applyCommandToNotebookSelection(definition);
                     return;
                 }
             }
@@ -462,20 +458,8 @@
             }
         }
 
-        function applyAnnotationToNotebookSelection(definition) {
-            const ordered = notebook.getOrderedSelection();
-
-            if (!ordered) {
-                return;
-            }
-
-            const firstNote = notes[ordered.start.noteIndex];
-            const firstState = getEffectiveState(
-                firstNote.annotations,
-                ordered.start.offset
-            );
-
-            let tag;
+        function applyCommandToNotebookSelection(definition) {
+            let value;
 
             if (definition.name === "link") {
                 const href = window.prompt("Enter URL");
@@ -484,40 +468,24 @@
                     return;
                 }
 
-                const trimmed = href.trim();
+                value = href.trim();
 
-                if (trimmed.length === 0) {
+                if (value.length === 0) {
                     return;
                 }
-
-                tag = createLinkAnnotationTag(trimmed);
             } else {
-                tag = createAnnotationTag(
-                    definition.name,
-                    firstState[definition.name] === undefined
-                );
+                value = notebook.getSelectionCommandState(definition.name) === undefined;
             }
 
-            for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
-                const range = notebook.getSelectedRangeForNote(index);
+            const result = notebook.applyCommandToSelection(definition.name, value);
 
-                if (!range || range.end <= range.start) {
-                    continue;
-                }
-
-                addAnnotation(
-                    notes[index],
-                    [range.start, range.end],
-                    tag
-                );
+            if (!result) {
+                return;
             }
-
-            const focus = notebook.getSelection()?.focus;
-            notebook.clearSelection();
 
             renderNotebook(
-                focus?.noteIndex ?? ordered.end.noteIndex,
-                focus?.offset ?? ordered.end.offset
+                result.focus.noteIndex,
+                result.focus.offset
             );
         }
 

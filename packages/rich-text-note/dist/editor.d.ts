@@ -54,8 +54,15 @@ export interface Editor {
         type: string;
         data: unknown;
     }, direction: "before" | "after"): RichTextNotebookMergeResult | null;
-    canApplyAnnotation(name: string): boolean;
-    applyAnnotation(start: number, end: number, name: string, value?: unknown): void;
+    canApplyCommand(command: string, range: {
+        start: number;
+        end: number;
+    }, value?: unknown): boolean;
+    getCommandState(command: string, offset: number): unknown;
+    applyCommand(command: string, range: {
+        start: number;
+        end: number;
+    }, value?: unknown): boolean;
     destroy(): void;
 }
 export declare function edit(element: HTMLElement, fragment: Fragment): Editor;

@@ -362,6 +362,59 @@ export class NotebookController {
             target.setValue(originalValue);
         }
     }
+    canApplyCommandToSelection(command, value) {
+        const ordered = this.getOrderedSelection();
+        if (!ordered || compareNotebookPoints(ordered.start, ordered.end) === 0) {
+            return false;
+        }
+        for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
+            const adapter = this.adapters[index];
+            const range = this.getSelectedRangeForNote(index);
+            if (!adapter || !range || range.end <= range.start) {
+                continue;
+            }
+            if (!adapter.canApplyCommand || !adapter.applyCommand || !adapter.canApplyCommand(command, range, value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    getSelectionCommandState(command) {
+        const ordered = this.getOrderedSelection();
+        if (!ordered) {
+            return undefined;
+        }
+        const adapter = this.adapters[ordered.start.noteIndex];
+        if (!adapter?.getCommandState) {
+            return undefined;
+        }
+        return adapter.getCommandState(command, ordered.start.offset);
+    }
+    applyCommandToSelection(command, value) {
+        this.resetVerticalNavigation();
+        const ordered = this.getOrderedSelection();
+        if (!ordered || compareNotebookPoints(ordered.start, ordered.end) === 0) {
+            return null;
+        }
+        if (!this.canApplyCommandToSelection(command, value)) {
+            return null;
+        }
+        for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
+            const adapter = this.adapters[index];
+            const range = this.getSelectedRangeForNote(index);
+            if (!adapter || !range || range.end <= range.start) {
+                continue;
+            }
+            if (!adapter.applyCommand(command, range, value)) {
+                return null;
+            }
+        }
+        const focus = this.selection
+            ? { ...this.selection.focus }
+            : { ...ordered.end };
+        this.clearSelection();
+        return { focus };
+    }
     replaceSelectionWithFragments(fragments) {
         const ordered = this.getOrderedSelection();
         if (!ordered) {

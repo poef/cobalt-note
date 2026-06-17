@@ -206,18 +206,28 @@ export function edit(element, fragment) {
                 joinOffset: result.joinOffset
             };
         },
-        canApplyAnnotation(name) {
-            return name !== "__selection" && defaultRegistry.get(name) !== undefined;
-        },
-        applyAnnotation(start, end, name, value) {
-            if (end <= start || !this.canApplyAnnotation(name)) {
-                return;
+        canApplyCommand(command, range, value) {
+            if (range.end <= range.start || command === "__selection") {
+                return false;
             }
-            const tag = name === "link" && typeof value === "string"
+            if (command === "link") {
+                return typeof value === "string" && value.length > 0;
+            }
+            return defaultRegistry.get(command) !== undefined;
+        },
+        getCommandState(command, offset) {
+            return getEffectiveState(fragment.annotations, offset)[command];
+        },
+        applyCommand(command, range, value) {
+            if (!this.canApplyCommand(command, range, value)) {
+                return false;
+            }
+            const tag = command === "link" && typeof value === "string"
                 ? createLinkAnnotationTag(value)
-                : createAnnotationTag(name, true);
-            addFragmentAnnotation(fragment, [start, end], tag);
-            rerender(start, end);
+                : createAnnotationTag(command, value !== false);
+            addFragmentAnnotation(fragment, [range.start, range.end], tag);
+            rerender(range.start, range.end);
+            return true;
         },
         destroy() {
             element.removeEventListener("keydown", handleKeyDown);

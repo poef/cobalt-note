@@ -71,6 +71,11 @@ export interface NotebookDeleteSelectionResult {
     };
 }
 
+export interface NotebookCommandResult {
+    /** Cursor position to restore after the application rerenders notes. */
+    focus: NotebookPoint;
+}
+
 export interface NotebookNoteAdapter {
     getType(): string;
     getValue(): unknown;
@@ -101,8 +106,9 @@ export interface NotebookNoteAdapter {
     };
     canMergeFragment(fragment: NotebookNoteFragment, direction: "before" | "after"): boolean;
     mergeFragment(fragment: NotebookNoteFragment, direction: "before" | "after"): NotebookNoteMergeResult | null;
-    canApplyAnnotation?(name: string): boolean;
-    applyAnnotation?(start: number, end: number, name: string, value?: unknown): void;
+    canApplyCommand?(command: string, range: LocalSelectionRange, value?: unknown): boolean;
+    getCommandState?(command: string, offset: number): unknown;
+    applyCommand?(command: string, range: LocalSelectionRange, value?: unknown): boolean;
 }
 
 export class NotebookController {
@@ -591,6 +597,80 @@ export class NotebookController {
         } finally {
             target.setValue(originalValue);
         }
+    }
+
+    canApplyCommandToSelection(command: string, value?: unknown): boolean {
+        const ordered = this.getOrderedSelection();
+
+        if (!ordered || compareNotebookPoints(ordered.start, ordered.end) === 0) {
+            return false;
+        }
+
+        for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
+            const adapter = this.adapters[index];
+            const range = this.getSelectedRangeForNote(index);
+
+            if (!adapter || !range || range.end <= range.start) {
+                continue;
+            }
+
+            if (!adapter.canApplyCommand || !adapter.applyCommand || !adapter.canApplyCommand(command, range, value)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    getSelectionCommandState(command: string): unknown {
+        const ordered = this.getOrderedSelection();
+
+        if (!ordered) {
+            return undefined;
+        }
+
+        const adapter = this.adapters[ordered.start.noteIndex];
+
+        if (!adapter?.getCommandState) {
+            return undefined;
+        }
+
+        return adapter.getCommandState(command, ordered.start.offset);
+    }
+
+    applyCommandToSelection(command: string, value?: unknown): NotebookCommandResult | null {
+        this.resetVerticalNavigation();
+
+        const ordered = this.getOrderedSelection();
+
+        if (!ordered || compareNotebookPoints(ordered.start, ordered.end) === 0) {
+            return null;
+        }
+
+        if (!this.canApplyCommandToSelection(command, value)) {
+            return null;
+        }
+
+        for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
+            const adapter = this.adapters[index];
+            const range = this.getSelectedRangeForNote(index);
+
+            if (!adapter || !range || range.end <= range.start) {
+                continue;
+            }
+
+            if (!adapter.applyCommand!(command, range, value)) {
+                return null;
+            }
+        }
+
+        const focus = this.selection
+            ? { ...this.selection.focus }
+            : { ...ordered.end };
+
+        this.clearSelection();
+
+        return { focus };
     }
 
     replaceSelectionWithFragments(fragments: NotebookNoteFragment[]): NotebookPasteResult | null {
