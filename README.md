@@ -68,15 +68,27 @@ Pressing Enter inserts a newline character (`\n`) into the fragment text. If the
 
 ## Notebook coordination
 
-A single cobalt editor only owns one fragment. It does not know about sibling notes. For notebook-style applications, pass an `onSplit` callback to `edit()` and let the parent application decide how to split and re-render notes.
+A single cobalt editor only owns one fragment. It does not know about sibling notes. For notebook-style applications, handle notebook-level shortcuts in the parent application and use the editor API to read the current selection.
 
 ```ts
-edit(element, fragment, {
-    onSplit(event) {
-        const { before, after } = splitFragment(fragment, event.offset);
-        // Replace the current note with before/after in your notebook model.
+const editor = edit(element, fragment);
+
+element.addEventListener("keydown", event => {
+    if (event.key !== "Enter" || !event.ctrlKey) {
+        return;
     }
+
+    const selection = editor.getSelection();
+
+    if (!selection) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const { before, after } = splitFragment(fragment, selection.start);
+    // Replace the current note with before/after in your notebook model.
 });
 ```
 
-In the example notebook, Ctrl+Enter requests a split. The parent splits the current fragment at the cursor offset, replaces the note with two notes, and focuses the new next note at offset 0. Normal Enter still inserts a newline inside the current note.
+In the example notebook, Ctrl+Enter is handled by the notebook application. The parent splits the current fragment at the cursor offset, replaces the note with two notes, and focuses the new next note at offset 0. Normal Enter still inserts a newline inside the current note.

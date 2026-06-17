@@ -29,9 +29,7 @@ export {
 } from "./editor.js";
 
 export type {
-    Editor,
-    EditorOptions,
-    EditorSplitEvent
+    Editor
 } from "./editor.js";
 
 export {

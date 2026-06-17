@@ -4,7 +4,7 @@ import { createAnnotationTag, createLinkAnnotationTag } from "./registry.js";
 import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
 import { getSelectionRange, setSelectionRange } from "./selection.js";
-export function edit(element, fragment, options = {}) {
+export function edit(element, fragment) {
     const state = createEditorState();
     function rerender(start, end) {
         element.innerHTML = render(fragment);
@@ -21,6 +21,9 @@ export function edit(element, fragment, options = {}) {
             element.focus();
             setSelectionRange(element, start, end);
         },
+        getSelection() {
+            return getSelectionRange(element);
+        },
         destroy() {
             element.removeEventListener("keydown", handleKeyDown);
             element.removeEventListener("beforeinput", handleBeforeInput);
@@ -28,12 +31,10 @@ export function edit(element, fragment, options = {}) {
         }
     };
     function handleKeyDown(event) {
-        if (event.key === "Enter" && event.ctrlKey) {
-            event.preventDefault();
-            requestSplit();
-            return;
-        }
         if (event.key === "Enter") {
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                return;
+            }
             event.preventDefault();
             insertNewline();
             return;
@@ -85,17 +86,6 @@ export function edit(element, fragment, options = {}) {
             new AddAnnotationCommand([selection.start, selection.end], tag)
         ]);
         rerender(selection.start, selection.end);
-    }
-    function requestSplit() {
-        const selection = getSelectionRange(element);
-        if (!selection) {
-            return;
-        }
-        options.onSplit?.({
-            editor,
-            fragment,
-            offset: selection.start
-        });
     }
     function insertNewline() {
         const selection = getSelectionRange(element);

@@ -3,7 +3,7 @@ export { addAnnotation, deleteRange, getNextOrder, insertText, splitFragment } f
 export { AddAnnotationCommand, applyCommand, applyCommands, DeleteRangeCommand, InsertTextCommand } from "./commands.js";
 export type { Command } from "./commands.js";
 export { edit } from "./editor.js";
-export type { Editor, EditorOptions, EditorSplitEvent } from "./editor.js";
+export type { Editor } from "./editor.js";
 export { render } from "./render.js";
 export { generateRuns, getEffectiveState } from "./runs.js";
 export type { ActiveAnnotation, EffectiveState, Run } from "./runs.js";

@@ -95,11 +95,23 @@
                 element.className = "note";
                 notesElement.append(element);
 
-                const editor = edit(element, fragment, {
-                    onSplit(event) {
-                        splitNote(index, event.offset);
+                const editor = edit(element, fragment);
+
+                element.addEventListener("keydown", event => {
+                    if (event.key !== "Enter" || !event.ctrlKey) {
+                        return;
                     }
-                });
+
+                    const selection = editor.getSelection();
+
+                    if (!selection) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    event.stopPropagation();
+                    splitNote(index, selection.start);
+                }, { capture: true });
 
                 editors.push(editor);
             });

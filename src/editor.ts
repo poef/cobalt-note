@@ -6,28 +6,18 @@ import { render } from "./render.js";
 import { getEffectiveState } from "./runs.js";
 import { getSelectionRange, setSelectionRange } from "./selection.js";
 
-export interface EditorSplitEvent {
-    editor: Editor;
-    fragment: Fragment;
-    offset: number;
-}
-
-export interface EditorOptions {
-    onSplit?: (event: EditorSplitEvent) => void;
-}
-
 export interface Editor {
     element: HTMLElement;
     fragment: Fragment;
     state: EditorState;
     focus(start?: number, end?: number): void;
+    getSelection(): ReturnType<typeof getSelectionRange>;
     destroy(): void;
 }
 
 export function edit(
     element: HTMLElement,
-    fragment: Fragment,
-    options: EditorOptions = {}
+    fragment: Fragment
 ): Editor {
     const state = createEditorState();
 
@@ -53,6 +43,9 @@ export function edit(
             element.focus();
             setSelectionRange(element, start, end);
         },
+        getSelection() {
+            return getSelectionRange(element);
+        },
         destroy(): void {
             element.removeEventListener("keydown", handleKeyDown);
             element.removeEventListener("beforeinput", handleBeforeInput);
@@ -61,13 +54,11 @@ export function edit(
     };
 
     function handleKeyDown(event: KeyboardEvent): void {
-        if (event.key === "Enter" && event.ctrlKey) {
-            event.preventDefault();
-            requestSplit();
-            return;
-        }
-
         if (event.key === "Enter") {
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                return;
+            }
+
             event.preventDefault();
             insertNewline();
             return;
@@ -163,20 +154,6 @@ export function edit(
         ]);
 
         rerender(selection.start, selection.end);
-    }
-
-    function requestSplit(): void {
-        const selection = getSelectionRange(element);
-
-        if (!selection) {
-            return;
-        }
-
-        options.onSplit?.({
-            editor,
-            fragment,
-            offset: selection.start
-        });
     }
 
     function insertNewline(): void {
