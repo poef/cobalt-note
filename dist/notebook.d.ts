@@ -28,10 +28,13 @@ export interface NotebookNoteAdapter {
 export declare class NotebookController {
     private adapters;
     private selection;
+    private desiredVerticalX;
     setAdapters(adapters: NotebookNoteAdapter[]): void;
     getSelection(): NotebookSelection | null;
     hasSelection(): boolean;
     clearSelection(): void;
+    resetVerticalNavigation(): void;
+    prepareVerticalNavigation(index: number): void;
     getOrderedSelection(): NotebookRange | null;
     getSelectedRangeForNote(index: number): LocalSelectionRange | null;
     extendLeft(index: number, offset: number): NotebookPoint;
@@ -47,6 +50,7 @@ export declare class NotebookController {
     private extendVertically;
     private movePointLeft;
     private movePointRight;
+    private getDesiredVerticalX;
     private getNoteLength;
     private updateSelectionDecorations;
     private clearSelectionDecorations;

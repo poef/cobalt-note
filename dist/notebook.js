@@ -1,6 +1,7 @@
 export class NotebookController {
     adapters = [];
     selection = null;
+    desiredVerticalX = null;
     setAdapters(adapters) {
         this.adapters = adapters;
         this.updateSelectionDecorations();
@@ -20,6 +21,23 @@ export class NotebookController {
         }
         this.selection = null;
         this.clearSelectionDecorations();
+    }
+    resetVerticalNavigation() {
+        this.desiredVerticalX = null;
+    }
+    prepareVerticalNavigation(index) {
+        if (this.desiredVerticalX !== null) {
+            return;
+        }
+        const adapter = this.adapters[index];
+        const selection = adapter?.getSelection();
+        if (!adapter || !selection || selection.start !== selection.end) {
+            return;
+        }
+        const rect = adapter.getCaretClientRect(selection.start);
+        if (rect) {
+            this.desiredVerticalX = rect.left;
+        }
     }
     getOrderedSelection() {
         if (!this.selection) {
@@ -53,6 +71,7 @@ export class NotebookController {
         return this.extendVertically("down");
     }
     moveLeft(index, offset) {
+        this.resetVerticalNavigation();
         if (offset !== 0 || index === 0) {
             return false;
         }
@@ -61,6 +80,7 @@ export class NotebookController {
         return true;
     }
     moveRight(index, offset) {
+        this.resetVerticalNavigation();
         if (offset !== this.getNoteLength(index) || index >= this.adapters.length - 1) {
             return false;
         }
@@ -78,7 +98,8 @@ export class NotebookController {
         if (!sourceRect || !targetRect) {
             return false;
         }
-        this.adapters[targetIndex]?.focusNearestPoint(sourceRect.left, getVerticalCenter(targetRect));
+        const x = this.getDesiredVerticalX(sourceRect);
+        this.adapters[targetIndex]?.focusNearestPoint(x, getVerticalCenter(targetRect));
         return true;
     }
     moveDown(index) {
@@ -92,7 +113,8 @@ export class NotebookController {
         if (!sourceRect || !targetRect) {
             return false;
         }
-        this.adapters[targetIndex]?.focusNearestPoint(sourceRect.left, getVerticalCenter(targetRect));
+        const x = this.getDesiredVerticalX(sourceRect);
+        this.adapters[targetIndex]?.focusNearestPoint(x, getVerticalCenter(targetRect));
         return true;
     }
     ensureSelection(index, offset) {
@@ -121,6 +143,7 @@ export class NotebookController {
         if (!sourceRect) {
             return false;
         }
+        const x = this.getDesiredVerticalX(sourceRect);
         if (direction === "up") {
             if (focus.noteIndex === 0 || !sourceEditor.isCaretOnFirstVisualLine()) {
                 return false;
@@ -130,7 +153,7 @@ export class NotebookController {
             if (!targetRect) {
                 return false;
             }
-            this.adapters[targetIndex]?.focusNearestPoint(sourceRect.left, getVerticalCenter(targetRect));
+            this.adapters[targetIndex]?.focusNearestPoint(x, getVerticalCenter(targetRect));
             const targetSelection = this.adapters[targetIndex]?.getSelection();
             if (!targetSelection) {
                 return false;
@@ -150,7 +173,7 @@ export class NotebookController {
             if (!targetRect) {
                 return false;
             }
-            this.adapters[targetIndex]?.focusNearestPoint(sourceRect.left, getVerticalCenter(targetRect));
+            this.adapters[targetIndex]?.focusNearestPoint(x, getVerticalCenter(targetRect));
             const targetSelection = this.adapters[targetIndex]?.getSelection();
             if (!targetSelection) {
                 return false;
@@ -194,6 +217,12 @@ export class NotebookController {
             noteIndex: point.noteIndex + 1,
             offset: 0
         };
+    }
+    getDesiredVerticalX(sourceRect) {
+        if (this.desiredVerticalX === null) {
+            this.desiredVerticalX = sourceRect.left;
+        }
+        return this.desiredVerticalX;
     }
     getNoteLength(index) {
         return this.adapters[index]?.getLength() ?? 0;

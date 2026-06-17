@@ -148,6 +148,12 @@
                 return;
             }
 
+            if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
+                notebook.resetVerticalNavigation();
+            } else {
+                notebook.prepareVerticalNavigation(index);
+            }
+
             if (event.shiftKey && event.key === "ArrowLeft") {
                 event.preventDefault();
                 event.stopPropagation();

@@ -33,6 +33,7 @@ export interface NotebookNoteAdapter {
 export class NotebookController {
     private adapters: NotebookNoteAdapter[] = [];
     private selection: NotebookSelection | null = null;
+    private desiredVerticalX: number | null = null;
 
     setAdapters(adapters: NotebookNoteAdapter[]): void {
         this.adapters = adapters;
@@ -57,6 +58,29 @@ export class NotebookController {
 
         this.selection = null;
         this.clearSelectionDecorations();
+    }
+
+    resetVerticalNavigation(): void {
+        this.desiredVerticalX = null;
+    }
+
+    prepareVerticalNavigation(index: number): void {
+        if (this.desiredVerticalX !== null) {
+            return;
+        }
+
+        const adapter = this.adapters[index];
+        const selection = adapter?.getSelection();
+
+        if (!adapter || !selection || selection.start !== selection.end) {
+            return;
+        }
+
+        const rect = adapter.getCaretClientRect(selection.start);
+
+        if (rect) {
+            this.desiredVerticalX = rect.left;
+        }
     }
 
     getOrderedSelection(): NotebookRange | null {
@@ -104,6 +128,8 @@ export class NotebookController {
     }
 
     moveLeft(index: number, offset: number): boolean {
+        this.resetVerticalNavigation();
+
         if (offset !== 0 || index === 0) {
             return false;
         }
@@ -114,6 +140,8 @@ export class NotebookController {
     }
 
     moveRight(index: number, offset: number): boolean {
+        this.resetVerticalNavigation();
+
         if (offset !== this.getNoteLength(index) || index >= this.adapters.length - 1) {
             return false;
         }
@@ -139,8 +167,10 @@ export class NotebookController {
             return false;
         }
 
+        const x = this.getDesiredVerticalX(sourceRect);
+
         this.adapters[targetIndex]?.focusNearestPoint(
-            sourceRect.left,
+            x,
             getVerticalCenter(targetRect)
         );
 
@@ -162,8 +192,10 @@ export class NotebookController {
             return false;
         }
 
+        const x = this.getDesiredVerticalX(sourceRect);
+
         this.adapters[targetIndex]?.focusNearestPoint(
-            sourceRect.left,
+            x,
             getVerticalCenter(targetRect)
         );
 
@@ -204,6 +236,8 @@ export class NotebookController {
             return false;
         }
 
+        const x = this.getDesiredVerticalX(sourceRect);
+
         if (direction === "up") {
             if (focus.noteIndex === 0 || !sourceEditor.isCaretOnFirstVisualLine()) {
                 return false;
@@ -219,7 +253,7 @@ export class NotebookController {
             }
 
             this.adapters[targetIndex]?.focusNearestPoint(
-                sourceRect.left,
+                x,
                 getVerticalCenter(targetRect)
             );
 
@@ -249,7 +283,7 @@ export class NotebookController {
             }
 
             this.adapters[targetIndex]?.focusNearestPoint(
-                sourceRect.left,
+                x,
                 getVerticalCenter(targetRect)
             );
 
@@ -307,6 +341,14 @@ export class NotebookController {
             noteIndex: point.noteIndex + 1,
             offset: 0
         };
+    }
+
+    private getDesiredVerticalX(sourceRect: DOMRect): number {
+        if (this.desiredVerticalX === null) {
+            this.desiredVerticalX = sourceRect.left;
+        }
+
+        return this.desiredVerticalX;
     }
 
     private getNoteLength(index: number): number {
