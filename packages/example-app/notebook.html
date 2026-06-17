@@ -95,6 +95,7 @@
             joinFragments,
             getEffectiveState,
             readFragmentsFromClipboard,
+            RICH_TEXT_NOTE_FRAGMENT_TYPE,
             sliceFragment,
             splitFragment,
             writeFragmentsToClipboard
@@ -597,13 +598,15 @@
                 return;
             }
 
+            const clipboard = notebook.copySelection();
+
+            if (!clipboard) {
+                return;
+            }
+
             event.preventDefault();
             event.stopPropagation();
-
-            writeFragmentsToClipboard(
-                event.clipboardData,
-                getNotebookSelectionFragments()
-            );
+            writeNotebookClipboard(event.clipboardData, clipboard);
         }
 
         function handleNotebookCut(event) {
@@ -611,19 +614,17 @@
                 return;
             }
 
+            const result = notebook.cutSelection();
+
+            if (!result) {
+                return;
+            }
+
             event.preventDefault();
             event.stopPropagation();
-
-            writeFragmentsToClipboard(
-                event.clipboardData,
-                getNotebookSelectionFragments()
-            );
-
-            const position = removeNotebookSelection();
-
-            if (position) {
-                renderNotebook(position.noteIndex, position.offset);
-            }
+            writeNotebookClipboard(event.clipboardData, result.clipboard);
+            applyNotebookReplacement(result.deleteResult.replacement);
+            renderNotebook(result.deleteResult.focus.noteIndex, result.deleteResult.focus.offset);
         }
 
         function handleNotebookPaste(event) {
@@ -631,121 +632,97 @@
                 return;
             }
 
-            event.preventDefault();
-            event.stopPropagation();
+            const fragments = readNotebookClipboardFragments(event.clipboardData);
 
-            const fragments = readFragmentsFromClipboard(event.clipboardData);
-
-            const position = removeNotebookSelection();
-
-            if (!position) {
+            if (fragments.length === 0) {
                 return;
             }
 
-            const focus = insertFragmentsAtNotebookPosition(
-                position.noteIndex,
-                position.offset,
-                fragments
-            );
+            const result = notebook.replaceSelectionWithFragments(fragments);
 
-            renderNotebook(focus.noteIndex, focus.offset);
-        }
-
-        function getNotebookSelectionFragments() {
-            const ordered = notebook.getOrderedSelection();
-
-            if (!ordered) {
-                return [];
+            if (!result) {
+                return;
             }
 
-            const fragments = [];
+            event.preventDefault();
+            event.stopPropagation();
+            applyNotebookReplacement(result.replacement);
+            renderNotebook(result.focus.noteIndex, result.focus.offset);
+        }
 
-            for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
-                const range = notebook.getSelectedRangeForNote(index);
+        function writeNotebookClipboard(clipboardData, clipboard) {
+            clipboardData.setData("text/plain", clipboard.text);
 
-                if (!range || range.end <= range.start) {
-                    continue;
+            const richTextFragments = clipboard.fragments
+                .filter(isRichTextNotebookFragment)
+                .map(fragment => fragment.data);
+
+            if (richTextFragments.length === clipboard.fragments.length) {
+                writeFragmentsToClipboard(clipboardData, richTextFragments);
+            }
+
+            clipboardData.setData(
+                "application/x-cobalt-notebook-fragments+json",
+                JSON.stringify({ fragments: clipboard.fragments })
+            );
+        }
+
+        function readNotebookClipboardFragments(clipboardData) {
+            const serialized = clipboardData.getData("application/x-cobalt-notebook-fragments+json");
+
+            if (serialized) {
+                try {
+                    const parsed = JSON.parse(serialized);
+
+                    if (Array.isArray(parsed.fragments)) {
+                        const fragments = parsed.fragments
+                            .map(normalizeNotebookClipboardFragment)
+                            .filter(fragment => fragment !== null);
+
+                        if (fragments.length > 0) {
+                            return fragments;
+                        }
+                    }
+                } catch (_error) {
+                    // Fall back to the single-note clipboard formats below.
                 }
-
-                fragments.push(
-                    sliceFragment(
-                        notes[index],
-                        range.start,
-                        range.end
-                    )
-                );
             }
 
-            return fragments;
+            return readFragmentsFromClipboard(clipboardData).map(fragment => ({
+                type: RICH_TEXT_NOTE_FRAGMENT_TYPE,
+                data: fragment
+            }));
         }
 
-        function insertFragmentsAtNotebookPosition(noteIndex, offset, fragments) {
-            if (fragments.length === 0) {
+        function normalizeNotebookClipboardFragment(fragment) {
+            if (
+                fragment &&
+                typeof fragment.type === "string" &&
+                Object.prototype.hasOwnProperty.call(fragment, "data")
+            ) {
+                return fragment;
+            }
+
+            if (isRichTextFragment(fragment)) {
                 return {
-                    noteIndex,
-                    offset
+                    type: RICH_TEXT_NOTE_FRAGMENT_TYPE,
+                    data: fragment
                 };
             }
 
-            if (fragments.length === 1) {
-                insertFragment(
-                    notes[noteIndex],
-                    offset,
-                    fragments[0]
-                );
+            return null;
+        }
 
-                return {
-                    noteIndex,
-                    offset: offset + fragments[0].text.length
-                };
-            }
+        function isRichTextNotebookFragment(fragment) {
+            return fragment &&
+                fragment.type === RICH_TEXT_NOTE_FRAGMENT_TYPE &&
+                isRichTextFragment(fragment.data);
+        }
 
-            const current = notes[noteIndex];
-            const prefix = sliceFragment(current, 0, offset);
-            const suffix = sliceFragment(current, offset, current.text.length);
-
-            const inserted = fragments.map(fragment => ({
-                text: fragment.text,
-                annotations: fragment.annotations.map(annotation => ({
-                    ...annotation,
-                    range: [...annotation.range]
-                }))
-            }));
-
-            const first = {
-                text: prefix.text,
-                annotations: prefix.annotations.map(annotation => ({
-                    ...annotation,
-                    range: [...annotation.range]
-                }))
-            };
-
-            insertFragment(first, first.text.length, inserted[0]);
-
-            const last = {
-                text: inserted[inserted.length - 1].text,
-                annotations: inserted[inserted.length - 1].annotations.map(annotation => ({
-                    ...annotation,
-                    range: [...annotation.range]
-                }))
-            };
-
-            const focus = {
-                noteIndex: noteIndex + inserted.length - 1,
-                offset: last.text.length
-            };
-
-            insertFragment(last, last.text.length, suffix);
-
-            notes.splice(
-                noteIndex,
-                1,
-                first,
-                ...inserted.slice(1, -1),
-                last
-            );
-
-            return focus;
+        function isRichTextFragment(fragment) {
+            return fragment &&
+                typeof fragment.text === "string" &&
+                Array.isArray(fragment.annotations);
         }
 
         function handleNotebookBeforeInput(event) {
@@ -829,10 +806,12 @@
             const deleteCount = Math.abs(replacement.removeNoteIndex - replacement.noteIndex) + 1;
             const spliceIndex = Math.min(replacement.noteIndex, replacement.removeNoteIndex);
 
+            const fragments = replacement.fragments ?? [replacement.fragment];
+
             notes.splice(
                 spliceIndex,
                 deleteCount,
-                replacement.fragment.data
+                ...fragments.map(fragment => fragment.data)
             );
         }
 

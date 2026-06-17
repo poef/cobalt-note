@@ -43,6 +43,20 @@ export interface NotebookJoinResult {
     focus: NotebookPoint;
 }
 
+export interface NotebookClipboardData {
+    text: string;
+    fragments: NotebookNoteFragment[];
+}
+
+export interface NotebookPasteResult {
+    focus: NotebookPoint;
+    replacement?: {
+        noteIndex: number;
+        removeNoteIndex: number;
+        fragments: NotebookNoteFragment[];
+    };
+}
+
 export interface NotebookDeleteSelectionResult {
     /** Cursor position where the selection collapsed. */
     focus: NotebookPoint;
@@ -62,6 +76,7 @@ export interface NotebookNoteAdapter {
     getValue(): unknown;
     setValue(value: unknown): void;
     getLength(): number;
+    getText(start?: number, end?: number): string;
     focus(start: number, end?: number): void;
     getSelection(): LocalSelectionRange | null;
     getCaretClientRect(offset?: number): DOMRect | null;
@@ -469,6 +484,164 @@ export class NotebookController {
                 fragment
             }
         };
+    }
+
+
+    copySelection(): NotebookClipboardData | null {
+        const ordered = this.getOrderedSelection();
+
+        if (!ordered || compareNotebookPoints(ordered.start, ordered.end) === 0) {
+            return null;
+        }
+
+        const fragments: NotebookNoteFragment[] = [];
+        const texts: string[] = [];
+
+        for (let index = ordered.start.noteIndex; index <= ordered.end.noteIndex; index++) {
+            const adapter = this.adapters[index];
+            const range = this.getSelectedRangeForNote(index);
+
+            if (!adapter || !range || range.end <= range.start) {
+                continue;
+            }
+
+            fragments.push(adapter.sliceFragment(range.start, range.end));
+            texts.push(adapter.getText(range.start, range.end));
+        }
+
+        if (fragments.length === 0) {
+            return null;
+        }
+
+        return {
+            text: texts.join("\n"),
+            fragments
+        };
+    }
+
+    cutSelection(): { clipboard: NotebookClipboardData; deleteResult: NotebookDeleteSelectionResult } | null {
+        const clipboard = this.copySelection();
+
+        if (!clipboard) {
+            return null;
+        }
+
+        const deleteResult = this.deleteSelection();
+
+        if (!deleteResult) {
+            return null;
+        }
+
+        return { clipboard, deleteResult };
+    }
+
+    pasteFragments(noteIndex: number, offset: number, fragments: NotebookNoteFragment[]): NotebookPasteResult | null {
+        this.resetVerticalNavigation();
+
+        const target = this.adapters[noteIndex];
+
+        if (!target || fragments.length === 0) {
+            return null;
+        }
+
+        if (!fragments.every(fragment => target.canInsertFragment(fragment))) {
+            return null;
+        }
+
+        if (fragments.length === 1) {
+            const focusOffset = target.insertFragment(offset, fragments[0]);
+
+            return {
+                focus: {
+                    noteIndex,
+                    offset: focusOffset
+                }
+            };
+        }
+
+        const originalValue = target.getValue();
+        const split = target.splitFragment(offset);
+
+        try {
+            target.setValue(split.before.data);
+            const firstOffset = target.insertFragment(target.getLength(), fragments[0]);
+            const first = target.sliceFragment(0, target.getLength());
+
+            const replacementFragments = [
+                first,
+                ...fragments.slice(1, -1)
+            ];
+
+            target.setValue(split.after.data);
+            const focusOffset = target.insertFragment(0, fragments[fragments.length - 1]);
+            const last = target.sliceFragment(0, target.getLength());
+            replacementFragments.push(last);
+
+            return {
+                focus: {
+                    noteIndex: noteIndex + replacementFragments.length - 1,
+                    offset: focusOffset
+                },
+                replacement: {
+                    noteIndex,
+                    removeNoteIndex: noteIndex,
+                    fragments: replacementFragments
+                }
+            };
+        } finally {
+            target.setValue(originalValue);
+        }
+    }
+
+    replaceSelectionWithFragments(fragments: NotebookNoteFragment[]): NotebookPasteResult | null {
+        const ordered = this.getOrderedSelection();
+
+        if (!ordered) {
+            return null;
+        }
+
+        const deleteResult = this.deleteSelection();
+
+        if (!deleteResult) {
+            return null;
+        }
+
+        const pasteResult = this.pasteFragments(
+            deleteResult.focus.noteIndex,
+            deleteResult.focus.offset,
+            fragments
+        );
+
+        if (!pasteResult) {
+            return {
+                focus: deleteResult.focus,
+                replacement: deleteResult.replacement
+                    ? {
+                        noteIndex: deleteResult.replacement.noteIndex,
+                        removeNoteIndex: deleteResult.replacement.removeNoteIndex,
+                        fragments: [deleteResult.replacement.fragment]
+                    }
+                    : undefined
+            };
+        }
+
+        if (deleteResult.replacement || pasteResult.replacement) {
+            const target = this.adapters[ordered.start.noteIndex];
+            const replacementFragments = pasteResult.replacement?.fragments ?? [
+                target.sliceFragment(0, target.getLength())
+            ];
+
+            return {
+                focus: pasteResult.focus,
+                replacement: {
+                    noteIndex: ordered.start.noteIndex,
+                    removeNoteIndex: ordered.end.noteIndex,
+                    fragments: replacementFragments
+                }
+            };
+        }
+
+        return pasteResult;
     }
 
     moveDown(index: number): boolean {

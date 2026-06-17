@@ -18,6 +18,7 @@ export interface Editor {
     getValue(): Fragment;
     setValue(value: unknown): void;
     getLength(): number;
+    getText(start?: number, end?: number): string;
     focus(start?: number, end?: number): void;
     getSelection(): ReturnType<typeof getSelectionRange>;
     getCaretClientRect(offset?: number): DOMRect | null;

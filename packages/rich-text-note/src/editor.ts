@@ -46,6 +46,7 @@ export interface Editor {
     getValue(): Fragment;
     setValue(value: unknown): void;
     getLength(): number;
+    getText(start?: number, end?: number): string;
     focus(start?: number, end?: number): void;
     getSelection(): ReturnType<typeof getSelectionRange>;
     getCaretClientRect(offset?: number): DOMRect | null;
@@ -199,6 +200,12 @@ export function edit(
         },
         getLength(): number {
             return fragment.text.length;
+        },
+        getText(start = 0, end = fragment.text.length): string {
+            return fragment.text.slice(
+                Math.max(0, Math.min(fragment.text.length, start)),
+                Math.max(0, Math.min(fragment.text.length, end))
+            );
         },
         focus(start = 0, end = start): void {
             element.focus();

@@ -95,6 +95,9 @@ export function edit(element, fragment) {
         getLength() {
             return fragment.text.length;
         },
+        getText(start = 0, end = fragment.text.length) {
+            return fragment.text.slice(Math.max(0, Math.min(fragment.text.length, start)), Math.max(0, Math.min(fragment.text.length, end)));
+        },
         focus(start = 0, end = start) {
             element.focus();
             setSelectionRange(element, start, end);

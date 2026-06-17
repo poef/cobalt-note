@@ -15,10 +15,10 @@ function createAdapter({
             return type;
         },
         getValue() {
-            return value;
+            return { text: value.text };
         },
         setValue(nextValue) {
-            value = nextValue;
+            value = { text: nextValue.text };
         },
         getLength() {
             return value.text.length;
@@ -102,80 +102,120 @@ function createAdapter({
     };
 }
 
-test("deleteSelection deletes a local selected range in-place", () => {
-    const adapter = createAdapter({ text: "abcdef" });
+test("copySelection returns plain text and opaque fragments", () => {
     const notebook = new NotebookController();
-    notebook.setAdapters([adapter]);
+    notebook.setAdapters([
+        createAdapter({ text: "hello brave" }),
+        createAdapter({ text: "new world" })
+    ]);
     notebook.selectRange(
-        { noteIndex: 0, offset: 2 },
-        { noteIndex: 0, offset: 5 }
-    );
-
-    const result = notebook.deleteSelection();
-
-    assert.deepEqual(result, {
-        focus: {
-            noteIndex: 0,
-            offset: 2
-        }
-    });
-    assert.equal(adapter.getValue().text, "abf");
-    assert.equal(notebook.hasSelection(), false);
-});
-
-test("deleteSelection removes a cross-note selection through opaque fragments", () => {
-    const first = createAdapter({ text: "hello brave" });
-    const second = createAdapter({ text: "new world" });
-    const third = createAdapter({ text: "after" });
-    const notebook = new NotebookController();
-    notebook.setAdapters([first, second, third]);
-    notebook.selectRange(
-        { noteIndex: 0, offset: 5 },
-        { noteIndex: 2, offset: 2 }
-    );
-
-    const result = notebook.deleteSelection();
-
-    assert.deepEqual(result, {
-        focus: {
-            noteIndex: 0,
-            offset: 5
-        },
-        replacement: {
-            noteIndex: 0,
-            removeNoteIndex: 2,
-            fragment: {
-                type: "test/note",
-                data: {
-                    text: "helloter"
-                }
-            }
-        }
-    });
-    assert.equal(first.getValue().text, "helloter");
-    assert.equal(notebook.hasSelection(), false);
-});
-
-test("deleteSelection returns null when the target note rejects the suffix fragment", () => {
-    const first = createAdapter({
-        text: "first",
-        accepts: fragment => fragment.type === "accepted/type"
-    });
-    const second = createAdapter({
-        type: "other/type",
-        text: "second"
-    });
-    const notebook = new NotebookController();
-    notebook.setAdapters([first, second]);
-    notebook.selectRange(
-        { noteIndex: 0, offset: 2 },
+        { noteIndex: 0, offset: 6 },
         { noteIndex: 1, offset: 3 }
     );
 
-    const result = notebook.deleteSelection();
+    assert.deepEqual(notebook.copySelection(), {
+        text: "brave\nnew",
+        fragments: [
+            { type: "test/note", data: { text: "brave" } },
+            { type: "test/note", data: { text: "new" } }
+        ]
+    });
+});
+
+test("cutSelection copies and deletes the selected content", () => {
+    const first = createAdapter({ text: "hello brave" });
+    const second = createAdapter({ text: "new world" });
+    const notebook = new NotebookController();
+    notebook.setAdapters([first, second]);
+    notebook.selectRange(
+        { noteIndex: 0, offset: 5 },
+        { noteIndex: 1, offset: 3 }
+    );
+
+    const result = notebook.cutSelection();
+
+    assert.equal(result.clipboard.text, " brave\nnew");
+    assert.deepEqual(result.deleteResult.focus, { noteIndex: 0, offset: 5 });
+    assert.equal(first.getValue().text, "hello world");
+});
+
+test("pasteFragments inserts a single fragment in-place", () => {
+    const adapter = createAdapter({ text: "hello world" });
+    const notebook = new NotebookController();
+    notebook.setAdapters([adapter]);
+
+    const result = notebook.pasteFragments(0, 6, [
+        { type: "test/note", data: { text: "brave " } }
+    ]);
+
+    assert.deepEqual(result, {
+        focus: { noteIndex: 0, offset: 12 }
+    });
+    assert.equal(adapter.getValue().text, "hello brave world");
+});
+
+test("pasteFragments returns replacement fragments for multi-note paste", () => {
+    const adapter = createAdapter({ text: "hello world" });
+    const notebook = new NotebookController();
+    notebook.setAdapters([adapter]);
+
+    const result = notebook.pasteFragments(0, 6, [
+        { type: "test/note", data: { text: "one" } },
+        { type: "test/note", data: { text: "two" } }
+    ]);
+
+    assert.deepEqual(result, {
+        focus: { noteIndex: 1, offset: 3 },
+        replacement: {
+            noteIndex: 0,
+            removeNoteIndex: 0,
+            fragments: [
+                { type: "test/note", data: { text: "hello one" } },
+                { type: "test/note", data: { text: "twoworld" } }
+            ]
+        }
+    });
+    assert.equal(adapter.getValue().text, "hello world");
+});
+
+test("replaceSelectionWithFragments combines cross-note delete and paste", () => {
+    const first = createAdapter({ text: "hello brave" });
+    const second = createAdapter({ text: "new world" });
+    const notebook = new NotebookController();
+    notebook.setAdapters([first, second]);
+    notebook.selectRange(
+        { noteIndex: 0, offset: 5 },
+        { noteIndex: 1, offset: 3 }
+    );
+
+    const result = notebook.replaceSelectionWithFragments([
+        { type: "test/note", data: { text: " inserted " } }
+    ]);
+
+    assert.deepEqual(result, {
+        focus: { noteIndex: 0, offset: 15 },
+        replacement: {
+            noteIndex: 0,
+            removeNoteIndex: 1,
+            fragments: [
+                { type: "test/note", data: { text: "hello inserted  world" } }
+            ]
+        }
+    });
+});
+
+test("pasteFragments returns null when the target rejects a fragment", () => {
+    const adapter = createAdapter({
+        text: "hello",
+        accepts: fragment => fragment.type === "accepted/type"
+    });
+    const notebook = new NotebookController();
+    notebook.setAdapters([adapter]);
+
+    const result = notebook.pasteFragments(0, 2, [
+        { type: "other/type", data: { text: "x" } }
+    ]);
 
     assert.equal(result, null);
-    assert.equal(first.getValue().text, "first");
-    assert.equal(second.getValue().text, "second");
-    assert.equal(notebook.hasSelection(), true);
+    assert.equal(adapter.getValue().text, "hello");
 });

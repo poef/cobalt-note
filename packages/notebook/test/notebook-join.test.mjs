@@ -24,6 +24,9 @@ function createAdapter({
         getLength() {
             return value.text.length;
         },
+        getText(start = 0, end = value.text.length) {
+            return value.text.slice(start, end);
+        },
         focus() {},
         getSelection() {
             return null;

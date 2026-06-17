@@ -36,6 +36,18 @@ export interface NotebookJoinResult {
     /** Cursor position to restore after the application updates its note list. */
     focus: NotebookPoint;
 }
+export interface NotebookClipboardData {
+    text: string;
+    fragments: NotebookNoteFragment[];
+}
+export interface NotebookPasteResult {
+    focus: NotebookPoint;
+    replacement?: {
+        noteIndex: number;
+        removeNoteIndex: number;
+        fragments: NotebookNoteFragment[];
+    };
+}
 export interface NotebookDeleteSelectionResult {
     /** Cursor position where the selection collapsed. */
     focus: NotebookPoint;
@@ -54,6 +66,7 @@ export interface NotebookNoteAdapter {
     getValue(): unknown;
     setValue(value: unknown): void;
     getLength(): number;
+    getText(start?: number, end?: number): string;
     focus(start: number, end?: number): void;
     getSelection(): LocalSelectionRange | null;
     getCaretClientRect(offset?: number): DOMRect | null;
@@ -112,6 +125,13 @@ export declare class NotebookController {
     joinWithPrevious(index: number): NotebookJoinResult | null;
     joinWithNext(index: number, focusOffset?: number): NotebookJoinResult | null;
     deleteSelection(): NotebookDeleteSelectionResult | null;
+    copySelection(): NotebookClipboardData | null;
+    cutSelection(): {
+        clipboard: NotebookClipboardData;
+        deleteResult: NotebookDeleteSelectionResult;
+    } | null;
+    pasteFragments(noteIndex: number, offset: number, fragments: NotebookNoteFragment[]): NotebookPasteResult | null;
+    replaceSelectionWithFragments(fragments: NotebookNoteFragment[]): NotebookPasteResult | null;
     moveDown(index: number): boolean;
     private selectExpandedRangeAtClientPosition;
     private getNoteIndexAtClientPosition;
