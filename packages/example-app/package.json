@@ -6,8 +6,5 @@
   "dependencies": {
     "@cobalt/notebook": "0.1.0",
     "@cobalt/rich-text-note": "0.1.0"
-  },
-  "scripts": {
-    "start": "python3 -m http.server 8080"
   }
 }
