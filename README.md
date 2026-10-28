@@ -66,14 +66,13 @@ The examples import from the package `dist/` directories, so run the build befor
 ## Run the examples
 
 ```bash
-cd packages/example-app
-npm run start
+npx serve -l 8080 packages/
 ```
 
 Then open:
 
-- `http://localhost:8080/index.html`
-- `http://localhost:8080/notebook.html`
+- `http://localhost:8080/example-app/`
+- `http://localhost:8080/example-app/notebook.html`
 
 ## Next planned refactors
 
