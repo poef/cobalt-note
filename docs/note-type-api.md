@@ -60,8 +60,10 @@ paste. The notebook should not try to convert between content types itself.
 
 ## Selection semantics
 
-All offsets are UTF-16 string offsets in the note's visible text representation.
-Ranges are half-open: `[start, end)`.
+Most text-like notes use UTF-16 string offsets in the note's visible text representation.
+Non-text notes may expose a small logical offset space instead. For example, an
+atomic image note can use offset `0` for before the image and offset `1` for after
+the image. Ranges are half-open: `[start, end)`.
 
 A note adapter reports and accepts local selections:
 
@@ -117,11 +119,18 @@ getText(start?, end?)
 deleteRange(start, end)
 insertText(offset, text)
 sliceFragment(start, end)
+canSplit?(offset)
 splitFragment(offset)
 ```
 
-`getText()` provides the plain-text clipboard representation. It should return the
-same visible text that the offset model uses.
+`getText()` provides the plain-text clipboard representation. For text-like notes
+it should return the same visible text that the offset model uses. Atomic or
+media notes may return a caption, alt text, filename, or another useful textual
+fallback.
+
+`canSplit?(offset)` lets atomic notes decline operations that require splitting a
+note into two fragments. If omitted, the notebook treats the note as splittable
+for backward compatibility with simple text-like adapters.
 
 ## Commands
 
@@ -137,6 +146,20 @@ applyCommand?(command, range, value?)
 
 For example, the rich-text note may interpret `"strong"` as bold formatting. The
 code note currently rejects all commands.
+
+## Image note atomic limitation
+
+`@cobalt/image-note` is intentionally atomic in its first implementation. It uses
+logical offsets `0` and `1`, rejects split, merge, and fragment insertion, and
+only supports note-specific commands such as `set-alt` and `set-caption`. This is
+useful as an API stress test because it proves that a note does not have to be a
+linear text editor to participate in notebook focus, selection routing, command
+routing, and clipboard fallback text.
+
+Whole-note deletion is not fully solved by the adapter API yet: a local
+`deleteRange(0, 1)` cannot remove the note instance from the surrounding
+notebook list. That should become an explicit notebook/application operation if
+atomic notes become a primary use case.
 
 ## Code note textarea limitation
 

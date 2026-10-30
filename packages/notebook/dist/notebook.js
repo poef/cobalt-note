@@ -332,6 +332,9 @@ export class NotebookController {
                 }
             };
         }
+        if (target.canSplit?.(offset) === false) {
+            return null;
+        }
         const originalValue = target.getValue();
         const split = target.splitFragment(offset);
         try {

@@ -100,6 +100,7 @@ export interface NotebookNoteAdapter {
     sliceFragment(start: number, end: number): NotebookNoteFragment;
     canInsertFragment(fragment: NotebookNoteFragment): boolean;
     insertFragment(offset: number, fragment: NotebookNoteFragment): number;
+    canSplit?(offset: number): boolean;
     splitFragment(offset: number): {
         before: NotebookNoteFragment;
         after: NotebookNoteFragment;
@@ -563,6 +564,10 @@ export class NotebookController {
                     offset: focusOffset
                 }
             };
+        }
+
+        if (target.canSplit?.(offset) === false) {
+            return null;
         }
 
         const originalValue = target.getValue();

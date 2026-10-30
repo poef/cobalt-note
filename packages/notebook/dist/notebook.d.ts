@@ -88,6 +88,7 @@ export interface NotebookNoteAdapter {
     sliceFragment(start: number, end: number): NotebookNoteFragment;
     canInsertFragment(fragment: NotebookNoteFragment): boolean;
     insertFragment(offset: number, fragment: NotebookNoteFragment): number;
+    canSplit?(offset: number): boolean;
     splitFragment(offset: number): {
         before: NotebookNoteFragment;
         after: NotebookNoteFragment;

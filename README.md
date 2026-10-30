@@ -63,6 +63,10 @@ npm run build
 
 The examples import from the package `dist/` directories, so run the build before opening them.
 
+The root `package-lock.json` locks the shared workspace installation used by the
+example app and its build/test tools. Individual library packages do not keep
+separate lockfiles.
+
 ## Run the examples
 
 ```bash

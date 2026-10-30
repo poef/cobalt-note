@@ -10,9 +10,21 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@cobalt/note-core": ["packages/note-core/src/index.ts"],
-      "@cobalt/rich-text-note": ["packages/rich-text-note/src/index.ts"],
-      "@cobalt/notebook": ["packages/notebook/src/index.ts"]
+      "@cobalt/note-core": [
+        "packages/note-core/src/index.ts"
+      ],
+      "@cobalt/rich-text-note": [
+        "packages/rich-text-note/src/index.ts"
+      ],
+      "@cobalt/notebook": [
+        "packages/notebook/src/index.ts"
+      ],
+      "@cobalt/code-note": [
+        "packages/code-note/src/index.ts"
+      ],
+      "@cobalt/image-note": [
+        "packages/image-note/src/index.ts"
+      ]
     }
   }
 }

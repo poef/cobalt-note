@@ -28,7 +28,8 @@
         }
 
         .note:focus,
-        .cobalt-code-note:focus {
+        .cobalt-code-note:focus,
+        .cobalt-image-note:focus {
             border-color: #555;
             box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
         }
@@ -48,6 +49,44 @@
             line-height: 1.4;
             background: #f6f8fa;
             color: #24292f;
+        }
+
+        .cobalt-image-note {
+            box-sizing: border-box;
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+            outline: none;
+            padding: 10px 12px;
+            background: #fff;
+            display: grid;
+            gap: 8px;
+        }
+
+        .cobalt-image-note__image {
+            max-width: 100%;
+            border-radius: 6px;
+            display: block;
+        }
+
+        .cobalt-image-note__caption {
+            color: #57606a;
+            font-size: 14px;
+            text-align: center;
+            outline: none;
+            min-height: 1.4em;
+            white-space: pre-wrap;
+        }
+
+        .cobalt-image-note__caption:focus {
+            color: #24292f;
+        }
+
+        .cobalt-image-note[data-cobalt-image-selected] {
+            box-shadow: inset 0 0 0 3px Highlight;
+        }
+
+        .cobalt-image-note[data-cobalt-image-selected][data-cobalt-selection-active="false"] {
+            box-shadow: inset 0 0 0 3px rgba(128, 128, 128, 0.45);
         }
 
         [data-cobalt-selection="true"][data-cobalt-selection-active="true"] {
@@ -96,7 +135,8 @@
         "@cobalt/note-core": "../note-core/dist/index.js",
         "@cobalt/rich-text-note": "../rich-text-note/dist/index.js",
         "@cobalt/notebook": "../notebook/dist/index.js",
-        "@cobalt/code-note": "../code-note/dist/index.js"
+        "@cobalt/code-note": "../code-note/dist/index.js",
+        "@cobalt/image-note": "../image-note/dist/index.js"
       }
     }
     </script>
@@ -113,6 +153,10 @@
             CODE_NOTE_FRAGMENT_TYPE,
             editCodeNote
         } from "../code-note/dist/index.js";
+        import {
+            IMAGE_NOTE_FRAGMENT_TYPE,
+            editImageNote
+        } from "../image-note/dist/index.js";
         import {
             NotebookController
         } from "../notebook/dist/index.js";
@@ -135,6 +179,14 @@
                 type: CODE_NOTE_FRAGMENT_TYPE,
                 data: {
                     text: "function hello() {\n    return 42;\n}"
+                }
+            },
+            {
+                type: IMAGE_NOTE_FRAGMENT_TYPE,
+                data: {
+                    src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 240'%3E%3Crect width='640' height='240' fill='%23f6f8fa'/%3E%3Ccircle cx='180' cy='120' r='64' fill='%2396d0ff'/%3E%3Cpath d='M320 176 420 76l100 100z' fill='%237ac27a'/%3E%3Ctext x='320' y='126' text-anchor='middle' font-family='system-ui, sans-serif' font-size='28' fill='%2324292f'%3EImage note%3C/text%3E%3C/svg%3E",
+                    alt: "Decorative SVG placeholder",
+                    caption: "An atomic image note."
                 }
             },
             {
@@ -440,6 +492,20 @@
                 return;
             }
 
+            if (event.key === "Backspace" && selection.start === editor.getLength() && isAtomicNote(editor)) {
+                event.preventDefault();
+                event.stopPropagation();
+                deleteWholeNote(index, "previous");
+                return;
+            }
+
+            if (event.key === "Delete" && selection.start === 0 && isAtomicNote(editor)) {
+                event.preventDefault();
+                event.stopPropagation();
+                deleteWholeNote(index, "next");
+                return;
+            }
+
             if (event.key === "Backspace" && selection.start === 0) {
                 if (index === 0) {
                     return;
@@ -459,6 +525,20 @@
                 event.preventDefault();
                 event.stopPropagation();
                 joinWithNextNote(index, selection.start);
+                return;
+            }
+
+            if (event.key === "ArrowLeft" && isAtomicNote(editor) && selection.start > 0) {
+                event.preventDefault();
+                event.stopPropagation();
+                editor.focus(selection.start - 1);
+                return;
+            }
+
+            if (event.key === "ArrowRight" && isAtomicNote(editor) && selection.start < editor.getLength()) {
+                event.preventDefault();
+                event.stopPropagation();
+                editor.focus(selection.start + 1);
                 return;
             }
 
@@ -551,6 +631,28 @@
                 noteIndex: result.focus.noteIndex,
                 offset: result.focus.offset
             };
+        }
+
+
+        function isAtomicNote(editor) {
+            return editor.getLength() === 1 && editor.canSplit?.(0) === false;
+        }
+
+        function deleteWholeNote(index, direction) {
+            if (notes.length <= 1) {
+                return;
+            }
+
+            notes.splice(index, 1);
+
+            const focusIndex = direction === "previous"
+                ? Math.max(0, index - 1)
+                : Math.min(index, notes.length - 1);
+            const focusOffset = direction === "previous"
+                ? editors[focusIndex]?.getLength?.() ?? 0
+                : 0;
+
+            renderNotebook(focusIndex, focusOffset);
         }
 
         function handleNotebookCopy(event) {
@@ -727,6 +829,10 @@
         }
 
         function splitNote(index, offset) {
+            if (editors[index].canSplit?.(offset) === false) {
+                return;
+            }
+
             const result = editors[index].splitFragment(offset);
 
             notes.splice(
@@ -783,6 +889,10 @@
                 return document.createElement("textarea");
             }
 
+            if (fragment.type === IMAGE_NOTE_FRAGMENT_TYPE) {
+                return document.createElement("figure");
+            }
+
             const element = document.createElement("div");
             element.className = "note";
             return element;
@@ -791,6 +901,10 @@
         function createNoteEditor(element, fragment) {
             if (fragment.type === CODE_NOTE_FRAGMENT_TYPE) {
                 return editCodeNote(element, fragment.data);
+            }
+
+            if (fragment.type === IMAGE_NOTE_FRAGMENT_TYPE) {
+                return editImageNote(element, fragment.data);
             }
 
             if (fragment.type === RICH_TEXT_NOTE_FRAGMENT_TYPE) {
