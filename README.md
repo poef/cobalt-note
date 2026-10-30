@@ -50,7 +50,7 @@ It talks to notes through a `NotebookNoteAdapter`, so future note types do not n
 
 ### `@cobalt/example-app`
 
-Contains the current browser examples. The exact key bindings remain here on purpose; the notebook package provides primitives, while the app decides which keys trigger which notebook operations.
+Contains the current browser examples. The app owns notebook-level shortcuts, the note list, and focus after structural changes. Each note owns its local keyboard interpretation and can emit an intent event such as `cobalt:request-remove-note`; the app decides whether to perform that operation.
 
 ## Build
 

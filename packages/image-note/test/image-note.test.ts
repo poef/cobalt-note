@@ -94,15 +94,14 @@ describe("image note adapter", () => {
     test("notebook refuses multi-fragment paste into unsplittable image notes", () => {
         document.body.innerHTML = "";
         const image = createImageEditor().editor;
-        const code = createCodeEditor("code").editor;
         const notebook = new NotebookController();
+        const fragments = [image.sliceFragment(1, 3), image.sliceFragment(3, 5)];
+        const before = image.getValue();
 
         notebook.setAdapters([image]);
-
-        expect(notebook.pasteFragments(0, 0, [
-            code.sliceFragment(0, 2),
-            code.sliceFragment(2, 4)
-        ])).toBeNull();
+        expect(fragments.every(fragment => image.canInsertFragment(fragment))).toBe(true);
+        expect(notebook.pasteFragments(0, 2, fragments)).toBeNull();
+        expect(image.getValue()).toEqual(before);
     });
 
     test("can edit the caption through rich-text commands", () => {

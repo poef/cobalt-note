@@ -316,6 +316,7 @@ export function editImageNote(element, value, options = {}) {
             return false;
         },
         destroy() {
+            element.removeEventListener("keydown", handleKeyDown);
             captionEditor.destroy();
             element.textContent = "";
             element.classList.remove("cobalt-image-note");
@@ -323,9 +324,31 @@ export function editImageNote(element, value, options = {}) {
             element.removeAttribute("data-cobalt-selection-active");
         }
     };
-    element.addEventListener("keydown", event => {
+    function handleKeyDown(event) {
+        // Ancestors may consume a shortcut for a notebook-wide operation.
+        if (event.defaultPrevented || event.target !== element || event.isComposing ||
+            event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+            return;
+        }
         const current = editor.getSelection();
-        if (!current || current.start !== current.end || document.activeElement === captionElement) {
+        if (!current || current.start !== current.end) {
+            return;
+        }
+        let direction;
+        if (event.key === "Backspace" && current.start === 1) {
+            direction = "previous";
+        }
+        else if (event.key === "Delete" && current.start === 0) {
+            direction = "next";
+        }
+        if (direction) {
+            event.preventDefault();
+            event.stopPropagation();
+            // The host owns the note list and can accept or ignore this request.
+            element.dispatchEvent(new CustomEvent("cobalt:request-remove-note", {
+                bubbles: true,
+                detail: { direction }
+            }));
             return;
         }
         if (event.key === "ArrowLeft" && current.start > 0) {
@@ -341,7 +364,8 @@ export function editImageNote(element, value, options = {}) {
             editor.focus(1);
             captionEditor.focus(0);
         }
-    });
+    }
+    element.addEventListener("keydown", handleKeyDown);
     syncStaticDom();
     return editor;
 }

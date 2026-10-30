@@ -220,6 +220,14 @@
                 const editor = createNoteEditor(element, fragment);
                 editors.push(editor);
 
+                element.addEventListener("cobalt:request-remove-note", event => {
+                    if (event.target !== element) {
+                        return;
+                    }
+                    event.stopPropagation();
+                    deleteWholeNote(index, event.detail.direction);
+                });
+
                 element.addEventListener("keydown", event => {
                     handleNotebookKeyDown(event, index, editor);
                 }, { capture: true });
@@ -492,20 +500,6 @@
                 return;
             }
 
-            if (event.key === "Backspace" && selection.start === editor.getLength() && isAtomicNote(editor)) {
-                event.preventDefault();
-                event.stopPropagation();
-                deleteWholeNote(index, "previous");
-                return;
-            }
-
-            if (event.key === "Delete" && selection.start === 0 && isAtomicNote(editor)) {
-                event.preventDefault();
-                event.stopPropagation();
-                deleteWholeNote(index, "next");
-                return;
-            }
-
             if (event.key === "Backspace" && selection.start === 0) {
                 if (index === 0) {
                     return;
@@ -525,20 +519,6 @@
                 event.preventDefault();
                 event.stopPropagation();
                 joinWithNextNote(index, selection.start);
-                return;
-            }
-
-            if (event.key === "ArrowLeft" && isAtomicNote(editor) && selection.start > 0) {
-                event.preventDefault();
-                event.stopPropagation();
-                editor.focus(selection.start - 1);
-                return;
-            }
-
-            if (event.key === "ArrowRight" && isAtomicNote(editor) && selection.start < editor.getLength()) {
-                event.preventDefault();
-                event.stopPropagation();
-                editor.focus(selection.start + 1);
                 return;
             }
 
@@ -633,10 +613,6 @@
             };
         }
 
-
-        function isAtomicNote(editor) {
-            return editor.getLength() === 1 && editor.canSplit?.(0) === false;
-        }
 
         function deleteWholeNote(index, direction) {
             if (notes.length <= 1) {
